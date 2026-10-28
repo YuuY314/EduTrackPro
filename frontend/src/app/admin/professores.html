@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professores · Sophos Academy</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=Sora:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="header">
+    <div class="container header-bar">
+
+      <!-- botão ☰ (só aparece no celular) -->
+      <button class="botao-icone botao-menu" aria-label="Abrir menu">
+        <img src="../img/menu.svg" alt="">
+      </button>
+
+      <a class="logo" href="painel.html">
+        <img src="../img/logo.svg" alt="">
+        Sophos Academy
+      </a>
+
+      <nav class="nav">
+        <a href="painel.html">Painel</a>
+        <a href="alunos.html">Alunos</a>
+        <a href="professores.html" class="ativo">Professores</a>
+        <a href="turmas.html">Turmas</a>
+        <a href="calendario.html">Calendário</a>
+      </nav>
+
+      <div class="header-direita">
+        <button class="botao-icone" aria-label="Notificações">
+          <img src="../img/sino.svg" alt="">
+          <span class="contador">12</span>
+        </button>
+
+        <div class="usuario">
+          <button class="usuario-botao">
+            <span class="avatar">SM</span>
+            <span>
+              <strong>Sandra Moreira</strong>
+              <small>Administração</small>
+            </span>
+          </button>
+
+          <div class="usuario-menu" hidden>
+            <div class="usuario-menu-topo">
+              <strong>Sandra Moreira</strong>
+              <small>Administração · Mauá Visconde de</small>
+            </div>
+            <a href="#">Meu perfil</a>
+            <a href="#">Usuários e permissões</a>
+            <a href="#">Configurações da escola</a>
+            <a href="../index.html" class="sair">Sair</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== CONTEÚDO ==================== -->
+  <main class="container">
+
+    <div class="boas-vindas">
+      <span class="avatar">SM</span>
+      <div>
+        <h2>Olá, <strong>Sandra</strong></h2>
+        <p>Administração · Mauá Visconde de</p>
+      </div>
+    </div>
+
+    <h1 class="titulo-pagina">Professores</h1>
+    <p class="caminho"><a href="painel.html">Painel</a> / Professores</p>
+
+    <div class="cartao tabela-rolagem tabela-larga tabela-escura">
+      <table>
+        <thead>
+          <tr>
+            <th>Professor</th>
+            <th>Disciplina</th>
+            <th>Turmas</th>
+            <th class="centro">Notas do 3º bimestre</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+            <tr>
+              <td>Ricardo Lima</td>
+              <td>Matemática</td>
+              <td>3ª E, 3ª A, 2ª B, 1ª C</td>
+              <td class="centro"><span class="etiqueta ruim">Atrasado</span></td>
+              <td><button class="botao botao-pequeno botao-contorno botao-lembrete">Enviar lembrete</button></td>
+            </tr>
+            <tr>
+              <td>Camila Torres</td>
+              <td>Química</td>
+              <td>3ª E, 3ª A, 2ª B</td>
+              <td class="centro"><span class="etiqueta ruim">Atrasado</span></td>
+              <td><button class="botao botao-pequeno botao-contorno botao-lembrete">Enviar lembrete</button></td>
+            </tr>
+            <tr>
+              <td>André Souza</td>
+              <td>História</td>
+              <td>3ª E, 1ª C</td>
+              <td class="centro"><span class="etiqueta atencao">Vence hoje</span></td>
+              <td><button class="botao botao-pequeno botao-contorno botao-lembrete">Enviar lembrete</button></td>
+            </tr>
+            <tr>
+              <td>Juliana Prado</td>
+              <td>Língua Portuguesa</td>
+              <td>3ª E, 3ª A</td>
+              <td class="centro"><span class="etiqueta bom">Em dia</span></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Marcos Vieira</td>
+              <td>Física</td>
+              <td>3ª E, 2ª B</td>
+              <td class="centro"><span class="etiqueta bom">Em dia</span></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Patrícia Ramos</td>
+              <td>Biologia</td>
+              <td>3ª E, 3ª A, 1ª C</td>
+              <td class="centro"><span class="etiqueta bom">Em dia</span></td>
+              <td></td>
+            </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script src="../js/script.js"></script>
+</body>
+</html>

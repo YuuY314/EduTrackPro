@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chamada · Sophos Academy</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=Sora:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="header">
+    <div class="container header-bar">
+
+      <!-- botão ☰ (só aparece no celular) -->
+      <button class="botao-icone botao-menu" aria-label="Abrir menu">
+        <img src="../img/menu.svg" alt="">
+      </button>
+
+      <a class="logo" href="inicio.html">
+        <img src="../img/logo.svg" alt="">
+        Sophos Academy
+      </a>
+
+      <nav class="nav">
+        <a href="inicio.html">Início</a>
+        <a href="turmas.html">Minhas turmas</a>
+        <a href="chamada.html" class="ativo">Chamada</a>
+        <a href="notas.html">Notas</a>
+      </nav>
+
+      <div class="header-direita">
+        <button class="botao-icone" aria-label="Notificações">
+          <img src="../img/sino.svg" alt="">
+          <span class="contador">4</span>
+        </button>
+
+        <div class="usuario">
+          <button class="usuario-botao">
+            <span class="avatar">RL</span>
+            <span>
+              <strong>Prof. Ricardo Lima</strong>
+              <small>Matemática</small>
+            </span>
+          </button>
+
+          <div class="usuario-menu" hidden>
+            <div class="usuario-menu-topo">
+              <strong>Ricardo Lima</strong>
+              <small>Professor de Matemática · Mauá Visconde de</small>
+            </div>
+            <a href="#">Meu perfil</a>
+            <a href="#">Horário de aulas</a>
+            <a href="#">Configurações</a>
+            <a href="../index.html" class="sair">Sair</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== CONTEÚDO ==================== -->
+  <main class="container">
+
+    <div class="boas-vindas">
+      <span class="avatar">RL</span>
+      <div>
+        <h2>Olá, <strong>Prof. Ricardo</strong></h2>
+        <p>Matemática · 4 turmas · Mauá Visconde de</p>
+      </div>
+    </div>
+
+    <h1 class="titulo-pagina">Chamada</h1>
+    <p class="caminho"><a href="inicio.html">Início</a> / Chamada</p>
+
+    <div class="filtros">
+      <div class="campo largo">
+        <label for="turma">Turma</label>
+        <select id="turma">
+          <option>3ª Série E · Noite</option>
+          <option>3ª Série A · Manhã</option>
+          <option>2ª Série B · Manhã</option>
+          <option>1ª Série C · Tarde</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="data">Data</label>
+        <input id="data" type="date" value="2026-10-26">
+      </div>
+      <div class="campo">
+        <label for="aula">Aula</label>
+        <select id="aula">
+          <option>1ª aula · 19:00</option>
+          <option>2ª aula · 19:50</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <div class="tabela-rolagem">
+        <table>
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Aluno</th>
+              <th class="centro">Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+              <tr>
+                <td>01</td>
+                <td>Ana Beatriz Souza</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>02</td>
+                <td>Bruno Oliveira</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>03</td>
+                <td>Carla Mendes</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>04</td>
+                <td>Diego Santos</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>05</td>
+                <td>Eduarda Lima</td>
+                <td class="centro"><button class="botao-presenca falta">Falta</button></td>
+              </tr>
+              <tr>
+                <td>06</td>
+                <td>Felipe Rocha</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>07</td>
+                <td>Gabriel Araujo</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>08</td>
+                <td>Giovana Alves</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>09</td>
+                <td>Henrique Costa</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>Isabela Martins</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>11</td>
+                <td>João Pedro Silva</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+              <tr>
+                <td>12</td>
+                <td>Larissa Ferreira</td>
+                <td class="centro"><button class="botao-presenca">Presente</button></td>
+              </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="cartao-rodape">
+        <span id="contagem">11 presentes · 1 falta</span>
+        <span class="mensagem" id="mensagem-chamada"></span>
+        <button class="botao" id="salvar-chamada">Salvar chamada</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="../js/script.js"></script>
+</body>
+</html>

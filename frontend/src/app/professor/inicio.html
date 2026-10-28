@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Início · Sophos Academy</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=Sora:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="header">
+    <div class="container header-bar">
+
+      <!-- botão ☰ (só aparece no celular) -->
+      <button class="botao-icone botao-menu" aria-label="Abrir menu">
+        <img src="../img/menu.svg" alt="">
+      </button>
+
+      <a class="logo" href="inicio.html">
+        <img src="../img/logo.svg" alt="">
+        Sophos Academy
+      </a>
+
+      <nav class="nav">
+        <a href="inicio.html" class="ativo">Início</a>
+        <a href="turmas.html">Minhas turmas</a>
+        <a href="chamada.html">Chamada</a>
+        <a href="notas.html">Notas</a>
+      </nav>
+
+      <div class="header-direita">
+        <button class="botao-icone" aria-label="Notificações">
+          <img src="../img/sino.svg" alt="">
+          <span class="contador">4</span>
+        </button>
+
+        <div class="usuario">
+          <button class="usuario-botao">
+            <span class="avatar">RL</span>
+            <span>
+              <strong>Prof. Ricardo Lima</strong>
+              <small>Matemática</small>
+            </span>
+          </button>
+
+          <div class="usuario-menu" hidden>
+            <div class="usuario-menu-topo">
+              <strong>Ricardo Lima</strong>
+              <small>Professor de Matemática · Mauá Visconde de</small>
+            </div>
+            <a href="#">Meu perfil</a>
+            <a href="#">Horário de aulas</a>
+            <a href="#">Configurações</a>
+            <a href="../index.html" class="sair">Sair</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== CONTEÚDO ==================== -->
+  <main class="container">
+
+    <div class="boas-vindas">
+      <span class="avatar">RL</span>
+      <div>
+        <h2>Olá, <strong>Prof. Ricardo</strong></h2>
+        <p>Matemática · 4 turmas · Mauá Visconde de</p>
+      </div>
+    </div>
+
+    <div class="grade-4">
+      <div class="cartao numero">
+        <strong>3</strong>
+        <span>Aulas hoje</span>
+      </div>
+      <a class="cartao numero alerta" href="notas.html">
+        <strong>2</strong>
+        <span>Turmas sem nota no 3º bimestre</span>
+      </a>
+      <a class="cartao numero" href="turmas.html">
+        <strong>4</strong>
+        <span>Turmas</span>
+      </a>
+      <div class="cartao numero">
+        <strong>3</strong>
+        <span>Alunos abaixo de 75% de presença</span>
+      </div>
+    </div>
+
+    <div class="grade-2">
+      <div class="cartao cartao-conteudo">
+        <h3>Aulas de hoje · seg, 26/10</h3>
+        <div class="lista-item">
+          <time>13:00</time>
+          <div>1ª Série C<small>Sala 9 · 2 aulas</small></div>
+          <a class="botao botao-pequeno" href="chamada.html">Fazer chamada</a>
+        </div>
+        <div class="lista-item">
+          <time>19:00</time>
+          <div>3ª Série E<small>Sala 12 · 2 aulas</small></div>
+          <a class="botao botao-pequeno" href="chamada.html">Fazer chamada</a>
+        </div>
+        <div class="lista-item">
+          <time>20:40</time>
+          <div>3ª Série E<small>Sala 12 · Orientação de Estudo</small></div>
+          <a class="botao botao-pequeno" href="chamada.html">Fazer chamada</a>
+        </div>
+      </div>
+
+      <div class="cartao cartao-conteudo">
+        <h3>Frequência baixa em Matemática</h3>
+        <div class="lista-item">
+          <div>Eduarda Lima<small>3ª Série E · Noite</small></div>
+          <span class="etiqueta ruim">68%</span>
+        </div>
+        <div class="lista-item">
+          <div>Felipe Rocha<small>3ª Série E · Noite</small></div>
+          <span class="etiqueta atencao">73%</span>
+        </div>
+        <div class="lista-item">
+          <div>Gabriel Araujo<small>3ª Série E · Noite</small></div>
+          <span class="etiqueta atencao">71%</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="../js/script.js"></script>
+</body>
+</html>
