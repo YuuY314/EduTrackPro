@@ -1,0 +1,117 @@
+### Requisições de exemplo. Use a extensão "REST Client" do VS Code
+### (clique em "Send Request" acima de cada bloco).
+### Primeiro rode o login do perfil desejado; o token fica salvo nas variáveis.
+
+@host = http://localhost:3000/api
+
+### ---------- LOGIN ----------
+
+# @name loginAluno
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "ana.souza@aluno.escola.edu.br", "senha": "123456" }
+
+###
+# @name loginProfessor
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "ricardo.menezes@escola.edu.br", "senha": "123456" }
+
+###
+# @name loginAdmin
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "secretaria@escola.edu.br", "senha": "123456" }
+
+###
+@tokenAluno = {{loginAluno.response.body.token}}
+@tokenProfessor = {{loginProfessor.response.body.token}}
+@tokenAdmin = {{loginAdmin.response.body.token}}
+
+### ---------- ALUNO ----------
+
+GET {{host}}/alunos/me/home
+Authorization: Bearer {{tokenAluno}}
+
+###
+GET {{host}}/alunos/me/boletim
+Authorization: Bearer {{tokenAluno}}
+
+###
+GET {{host}}/alunos/me/frequencia
+Authorization: Bearer {{tokenAluno}}
+
+###
+GET {{host}}/alunos/me/horarios
+Authorization: Bearer {{tokenAluno}}
+
+###
+GET {{host}}/alunos/me/avisos
+Authorization: Bearer {{tokenAluno}}
+
+### ---------- PROFESSOR ----------
+
+GET {{host}}/professores/me/turmas
+Authorization: Bearer {{tokenProfessor}}
+
+###
+GET {{host}}/turmas/1/alunos
+Authorization: Bearer {{tokenProfessor}}
+
+### "Entrar no aluno"
+GET {{host}}/turmas/1/alunos/1
+Authorization: Bearer {{tokenProfessor}}
+
+###
+GET {{host}}/avaliacoes?turma=1
+Authorization: Bearer {{tokenProfessor}}
+
+### Lançar nota (troque o 21 pelo id de uma avaliação de Matemática)
+PUT {{host}}/avaliacoes/21/notas/1
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{ "valor": 8.5 }
+
+###
+POST {{host}}/aulas
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{ "id_tdp": 2, "data": "2026-10-27", "conteudo": "Revisão" }
+
+### Chamada (troque o 11 pelo id da aula criada acima)
+PUT {{host}}/aulas/11/frequencias
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{ "frequencias": [
+  { "id_aluno": 1, "presente": true },
+  { "id_aluno": 2, "presente": false, "justificativa": "Atestado" }
+] }
+
+###
+POST {{host}}/avisos
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{ "titulo": "Prova na sexta", "texto": "Levar calculadora.", "id_turma": 1 }
+
+### ---------- ADMIN ----------
+
+GET {{host}}/turmas
+Authorization: Bearer {{tokenAdmin}}
+
+###
+POST {{host}}/turmas
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{ "nome": "3B", "periodo": "Tarde", "ano_letivo": 2026 }
+
+###
+GET {{host}}/alunos
+Authorization: Bearer {{tokenAdmin}}
