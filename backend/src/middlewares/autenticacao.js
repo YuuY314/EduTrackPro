@@ -9,7 +9,7 @@
 // =====================================================================
 
 import { AppError } from "../utils/AppError.js";
-import { verificarToken } from "../utils/token.js";
+// import { verificarToken } from "../utils/token.js";
 
 export function autenticar(req, res, next) {
   const cabecalho = req.headers.authorization || ""; // "Bearer <token>"

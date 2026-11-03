@@ -1,37 +1,37 @@
-// 
-// config/ambiente.js
-// Lê as variáveis de ambiente (.env) UMA vez, valida e exporta um objeto
-// organizado. O resto do sistema importa daqui em vez de usar
-// process.env espalhado pelo código.
-//
-// Vantagem: se faltar alguma variável obrigatória, o servidor nem sobe
-// e avisa qual está faltando (falhar cedo é melhor que falhar no meio).
-// Carrega o arquivo .env para dentro de process.env.
-// (Precisa rodar ANTES de qualquer leitura de process.env.)
-import "dotenv/config";
+const nomesObrigatorios = ['PORT', 'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_NAME'];
+//DB_PASS: ficará de fora, pois como usamos o xampp, ou mysql sem configuração de segurança e a senha é ("") vazia
 
-// Variáveis sem as quais o sistema não funciona.
-// DB_PASS não entra na lista porque o MySQL local pode ter senha vazia.
-const obrigatorias = ["DB_HOST", "DB_PORT", "DB_USER", "DB_NAME", "JWT_SECRET"];
-
-const faltando = obrigatorias.filter((nome) => !process.env[nome]);
-if (faltando.length > 0) {
-  throw new Error(`Variáveis de ambiente faltando no .env: ${faltando.join(", ")}`);
+export function carregarAmbiente(arquivoDeConfiguracao) {
+    if (arquivoDeConfiguracao) {
+        try {
+            process.loadEnvFile(arquivoDeConfiguracao);
+        } catch {
+            throw new Error(`Arquivo de configuração não encontrado: ${arquivoDeConfiguracao}`)
+        }
+    }
+    const ausentes = nomesObrigatorios.filter((nome) => {
+        const valor = process.env[nome];
+        return typeof valor !== 'string' || valor.trim() === '';
+    });
+    if (ausentes.length > 0) {
+        throw new Error(`Configure no .env: ${ausentes.join(', ')}`);
+    }
+    return {
+        nomeAluno: process.env.NOME_ALUNO,
+        turma: process.env.TURMA,
+        porta: process.env.PORT,
+        ambiente: process.env.NODE_ENV || 'development'
+    }
 }
-
-export const ambiente = {
-  porta: Number(process.env.PORT) || 3000,
-
-  db: {
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT),
-    user: process.env.DB_USER,
-    pass: process.env.DB_PASS || "",
-    nome: process.env.DB_NAME,
-  },
-
-  jwt: {
-    segredo: process.env.JWT_SECRET,
-    expira: process.env.JWT_EXPIRES || "8h", // quanto tempo o login vale
-  },
-};
+export function exibirDiagnostico(configuracao) {
+    console.table({
+        estudante: configuracao.nomeAluno,
+        turma: configuracao.turma,
+        projeto: 'api-produtos',
+        ambiente: configuracao.ambiente,
+        node: process.version,
+        sistema: `${process.platform} ${process.arch}`,
+        diretorio: process.cwd(),
+        portaConfigurada: configuracao.porta
+    });
+}

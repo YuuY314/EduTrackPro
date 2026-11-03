@@ -8,21 +8,21 @@
 // e verificarToken() lança erro.
 // =====================================================================
 
-import jwt from "jsonwebtoken";
-import { ambiente } from "../config/ambiente.js";
-import { AppError } from "./AppError.js";
+// import jwt from "jsonwebtoken";
+// import { ambiente } from "../config/ambiente.js";
+// import { AppError } from "./AppError.js";
 
-// Cria o token a partir dos dados do usuário.
-export function gerarToken(dados) {
-  return jwt.sign(dados, ambiente.jwt.segredo, { expiresIn: ambiente.jwt.expira });
-}
+// // Cria o token a partir dos dados do usuário.
+// export function gerarToken(dados) {
+//   return jwt.sign(dados, ambiente.jwt.segredo, { expiresIn: ambiente.jwt.expira });
+// }
 
-// Confere assinatura e validade. Devolve os dados que estavam no token.
-export function verificarToken(token) {
-  try {
-    return jwt.verify(token, ambiente.jwt.segredo);
-  } catch {
-    // expirado, adulterado, malformado... para o cliente tudo é "inválido"
-    throw new AppError("Token inválido ou expirado. Faça login novamente.", 401);
-  }
-}
+// // Confere assinatura e validade. Devolve os dados que estavam no token.
+// export function verificarToken(token) {
+//   try {
+//     return jwt.verify(token, ambiente.jwt.segredo);
+//   } catch {
+//     // expirado, adulterado, malformado... para o cliente tudo é "inválido"
+//     throw new AppError("Token inválido ou expirado. Faça login novamente.", 401);
+//   }
+// }

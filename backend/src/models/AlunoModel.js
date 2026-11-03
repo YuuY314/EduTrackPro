@@ -12,7 +12,7 @@
 //    vendo o próprio boletim, ou admin).
 // =====================================================================
 
-import { comTransacao } from "../config/database.js";
+// import { comTransacao } from "../config/database.js";
 import { montarSet } from "../utils/sql.js";
 
 export function criarAlunosModel({ pool }) {
