@@ -8,9 +8,9 @@
 -- Garante que os acentos sejam lidos corretamente, qualquer que seja o cliente
 SET NAMES utf8mb4;
 
-DROP DATABASE IF EXISTS sistema_escolar;
-CREATE DATABASE sistema_escolar CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE sistema_escolar;
+DROP DATABASE IF EXISTS edutrackpro;
+CREATE DATABASE edutrackpro CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE edutrackpro;
 
 -- =====================================================================
 -- 1) ESTRUTURA

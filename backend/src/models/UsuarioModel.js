@@ -21,7 +21,7 @@ export async function listar({ limite, offset }) {
   const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM usuarios');
 
   return {
-    usuario: linhas.map(hidratarUsuario),
+    usuarios: linhas.map(hidratarUsuario),
     total: Number(total)
   };
 }
