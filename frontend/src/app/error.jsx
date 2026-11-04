@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import BrandLogo from "../components/status/BrandLogo";
-import base from "../components/status/status.module.css";
-import styles from "../components/status/Error.module.css";
+import BrandLogo from "../components/BrandLogo";
+import base from "../components/status.module.css";
+import styles from "../components/Error.module.css";
 
 export default function ErrorPage({ error, reset }) {
   const [retrying, setRetrying] = useState(false);

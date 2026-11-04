@@ -1,6 +1,6 @@
-import LoadingTips from "../components/status/LoadingTips";
-import base from "../components/status/status.module.css";
-import styles from "../components/status/Loading.module.css";
+import LoadingTips from "../components/LoadingTips";
+import base from "../components/status.module.css";
+import styles from "../components/Loading.module.css";
 
 export default function Loading() {
   return (

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import BrandLogo from "../components/status/BrandLogo";
-import BackButton from "../components/status/BackButton";
-import base from "../components/status/status.module.css";
-import styles from "../components/status/NotFound.module.css";
+import BrandLogo from "../components/BrandLogo";
+import BackButton from "../components/BackButton";
+import base from "../components/status.module.css";
+import styles from "../components/NotFound.module.css";
 
 export const metadata = {
   title: "Página não encontrada · EduTrackPro",
