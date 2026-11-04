@@ -1,5 +1,3 @@
-import { email } from "zod";
-
 export default class Usuario {
     constructor({
         id_usuario, email, senha_hash, perfil
