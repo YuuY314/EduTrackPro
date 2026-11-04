@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { alunosDaTurma, turmas } from '@/lib/dados';
+import { alunosDaTurma, turmas } from '@/src/lib/dados';
 
 export default function Chamada() {
   const [faltas, setFaltas] = useState(['Eduarda Lima']);

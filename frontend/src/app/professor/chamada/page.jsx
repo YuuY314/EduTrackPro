@@ -1,4 +1,4 @@
-import TituloPagina from '@/components/TituloPagina';
+import TituloPagina from '@/src/components/TituloPagina';
 import Chamada from './Chamada';
 
 export const metadata = { title: 'Chamada · Sophos Academy' };

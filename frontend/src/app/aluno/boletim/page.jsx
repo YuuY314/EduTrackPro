@@ -1,7 +1,7 @@
-import TituloPagina from '@/components/TituloPagina';
-import Etiqueta from '@/components/Etiqueta';
-import { boletim } from '@/lib/dados';
-import { corDaNota } from '@/lib/utils';
+import TituloPagina from '@/src/components/TituloPagina';
+import Etiqueta from '@/src/components/Etiqueta';
+import { boletim } from '@/src/lib/dados';
+import { corDaNota } from '@/src/lib/utils';
 
 export const metadata = { title: 'Boletim · Sophos Academy' };
 

@@ -1,4 +1,4 @@
-import TituloPagina from '@/components/TituloPagina';
+import TituloPagina from '@/src/components/TituloPagina';
 import Professores from './Professores';
 
 export const metadata = { title: 'Professores · Sophos Academy' };

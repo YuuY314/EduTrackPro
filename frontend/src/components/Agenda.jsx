@@ -1,4 +1,4 @@
-import { formatarData } from '@/lib/utils';
+import { formatarData } from '@/src/lib/utils';
 
 export default function Agenda({ eventos }) {
   const ordenados = [...eventos].sort((a, b) => a.data.localeCompare(b.data));

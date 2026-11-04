@@ -1,6 +1,6 @@
-import CartaoNumero from '@/components/CartaoNumero';
-import Agenda from '@/components/Agenda';
-import { agenda } from '@/lib/dados';
+import CartaoNumero from '@/src/components/CartaoNumero';
+import Agenda from '@/src/components/Agenda';
+import { agenda } from '@/src/lib/dados';
 
 export const metadata = { title: 'Início · Sophos Academy' };
 

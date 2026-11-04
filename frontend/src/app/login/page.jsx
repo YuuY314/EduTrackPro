@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { perfis } from '@/lib/dados';
+import { perfis } from '@/src/lib/dados';
 import './login.css';
 
 const opcoesPerfil = [

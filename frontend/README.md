@@ -1,4 +1,4 @@
-# Sophos Academy
+# EduTrackPro
 
 Sistema acadêmico em Next.js (App Router), com telas de aluno, professor e administração.
 

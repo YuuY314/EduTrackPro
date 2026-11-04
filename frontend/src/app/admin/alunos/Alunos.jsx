@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Etiqueta from '@/components/Etiqueta';
-import { alunosDaEscola, turmas } from '@/lib/dados';
+import Etiqueta from '@/src/components/Etiqueta';
+import { alunosDaEscola, turmas } from '@/src/lib/dados';
 
 function Situacao({ presenca }) {
   if (presenca === null) return <Etiqueta cor="vazio">Novo</Etiqueta>;

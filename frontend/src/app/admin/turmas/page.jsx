@@ -1,6 +1,6 @@
-import TituloPagina from '@/components/TituloPagina';
-import Etiqueta from '@/components/Etiqueta';
-import { turmas } from '@/lib/dados';
+import TituloPagina from '@/src/components/TituloPagina';
+import Etiqueta from '@/src/components/Etiqueta';
+import { turmas } from '@/src/lib/dados';
 
 export const metadata = { title: 'Turmas · Sophos Academy' };
 

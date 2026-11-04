@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Etiqueta from '@/components/Etiqueta';
-import { notasDaTurma, turmas } from '@/lib/dados';
-import { corDaNota, media } from '@/lib/utils';
+import Etiqueta from '@/src/components/Etiqueta';
+import { notasDaTurma, turmas } from '@/src/lib/dados';
+import { corDaNota, media } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
 

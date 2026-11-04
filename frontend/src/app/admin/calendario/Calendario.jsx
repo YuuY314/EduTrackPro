@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Agenda from '@/components/Agenda';
-import { agenda } from '@/lib/dados';
+import Agenda from '@/src/components/Agenda';
+import { agenda } from '@/src/lib/dados';
 
 const tipos = ['Letivo', 'Dia não letivo', 'Reunião de pais/responsáveis', 'Avaliação', 'Feriado'];
 

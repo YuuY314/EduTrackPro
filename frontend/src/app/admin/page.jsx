@@ -1,6 +1,6 @@
-import CartaoNumero from '@/components/CartaoNumero';
-import ListaItem from '@/components/ListaItem';
-import Etiqueta from '@/components/Etiqueta';
+import CartaoNumero from '@/src/components/CartaoNumero';
+import ListaItem from '@/src/components/ListaItem';
+import Etiqueta from '@/src/components/Etiqueta';
 
 export const metadata = { title: 'Painel · Sophos Academy' };
 

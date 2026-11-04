@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import CartaoNumero from '@/components/CartaoNumero';
-import ListaItem from '@/components/ListaItem';
-import Etiqueta from '@/components/Etiqueta';
-import { aulasDeHoje } from '@/lib/dados';
+import CartaoNumero from '@/src/components/CartaoNumero';
+import ListaItem from '@/src/components/ListaItem';
+import Etiqueta from '@/src/components/Etiqueta';
+import { aulasDeHoje } from '@/src/lib/dados';
 
 export const metadata = { title: 'Início · Sophos Academy' };
 

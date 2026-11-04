@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import TituloPagina from '@/components/TituloPagina';
-import Etiqueta from '@/components/Etiqueta';
-import { turmas } from '@/lib/dados';
-import { corDaNota } from '@/lib/utils';
+import TituloPagina from '@/src/components/TituloPagina';
+import Etiqueta from '@/src/components/Etiqueta';
+import { turmas } from '@/src/lib/dados';
+import { corDaNota } from '@/src/lib/utils';
 
 export const metadata = { title: 'Minhas turmas · Sophos Academy' };
 

@@ -1,4 +1,4 @@
-import { perfis } from '@/lib/dados';
+import { perfis } from '@/src/lib/dados';
 
 export default function BoasVindas({ perfil }) {
   const usuario = perfis[perfil];

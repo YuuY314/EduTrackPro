@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Etiqueta from '@/components/Etiqueta';
-import { professores } from '@/lib/dados';
+import Etiqueta from '@/src/components/Etiqueta';
+import { professores } from '@/src/lib/dados';
 
 const situacoes = {
   'atrasado': { cor: 'ruim', texto: 'Atrasado' },

@@ -1,5 +1,5 @@
-import Header from '@/components/Header';
-import BoasVindas from '@/components/BoasVindas';
+import Header from '@/src/components/Header';
+import BoasVindas from '@/src/components/BoasVindas';
 
 export default function Layout({ children }) {
   return (

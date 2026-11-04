@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { perfis } from '@/lib/dados';
+import { perfis } from '@/src/lib/dados';
 
 export default function Header({ perfil }) {
   const usuario = perfis[perfil];

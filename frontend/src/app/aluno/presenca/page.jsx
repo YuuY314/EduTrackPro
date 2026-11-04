@@ -1,7 +1,7 @@
-import TituloPagina from '@/components/TituloPagina';
-import Etiqueta from '@/components/Etiqueta';
-import { presencaPorComponente } from '@/lib/dados';
-import { corDaPresenca } from '@/lib/utils';
+import TituloPagina from '@/src/components/TituloPagina';
+import Etiqueta from '@/src/components/Etiqueta';
+import { presencaPorComponente } from '@/src/lib/dados';
+import { corDaPresenca } from '@/src/lib/utils';
 
 export const metadata = { title: 'Presença · Sophos Academy' };
 

@@ -1,4 +1,4 @@
-import TituloPagina from '@/components/TituloPagina';
+import TituloPagina from '@/src/components/TituloPagina';
 import Calendario from './Calendario';
 
 export const metadata = { title: 'Calendário · Sophos Academy' };
