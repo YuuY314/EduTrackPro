@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { resolve } from 'node:path';
 
+import { usuarioRouter } from './routes/UsuarioRoutes.js';
 import { alunoRouter, configurarSegurancaAlunos } from './routes/AlunoRoutes.js';
 // import { authRouter } from './routes/AuthRoutes.js';
 // import { autenticar, autorizarAdmin } from './middlewares/AuthMiddleware.js';
@@ -36,7 +37,8 @@ app.use('/uploads', express.static(resolve('uploads')));
 // 3. Rotas da API
 app.get('/api/check', (_req, res) => res.status(200).json({ status: 'ok' }));
 // app.use('/api/auth', authRouter);
-app.use('/api/produto', alunoRouter);
+app.use('/api/aluno', alunoRouter);
+app.use('/api/usuario', usuarioRouter);
 
 // 4. Fallback 404
 app.use((req, res) => {
@@ -48,3 +50,4 @@ app.use((erro, req, res, _next) => {
   console.error('Erro de Servidor:', erro.message);
   res.status(erro.status || 500).json({ sucesso: false, erro: erro.message || 'Falha interna do servidor.' });
 });
+

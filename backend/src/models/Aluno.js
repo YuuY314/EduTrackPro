@@ -15,19 +15,19 @@ export default class Aluno {
             throw new TypeError('ID deve ser um inteiro positivo');
         }
         if (typeof nome !== 'string' || matricula.trim() === '') {
-            throw new TypeError('Nome é obrigatório');
+            throw new TypeError('Matricula é obrigatório');
         }
         if (typeof nome !== 'string' || nome.trim() === '') {
             throw new TypeError('Nome é obrigatório');
         }
         if (typeof nome !== 'string' || cpf.trim() === '') {
-            throw new TypeError('Nome é obrigatório');
+            throw new TypeError('CPF é obrigatório');
         }
         if (typeof nome !== 'string' || endereco.trim() === '') {
-            throw new TypeError('Nome é obrigatório');
+            throw new TypeError('Endereço é obrigatório');
         }
         if (typeof nome !== 'string' || email_institucional.trim() === '') {
-            throw new TypeError('Nome é obrigatório');
+            throw new TypeError('Email Institucional é obrigatório');
         }
         this.id_aluno = id_aluno;
         this.id_turma = id_turma;
