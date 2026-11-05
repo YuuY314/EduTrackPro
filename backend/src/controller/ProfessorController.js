@@ -12,11 +12,10 @@ function responderErro(erro, res, next) {
 
 export async function listar(req, res, next) {
   try {
-    const resultado = await ProfessorService
-  .listar(req.query);
+    const resultado = await ProfessorService.listar(req.query);
     return res.status(200).json({
       sucesso: true,
-      dados: resultado.professors,
+      dados: resultado.professores,
       paginacao: resultado.paginacao
     });
   } catch (erro) {
@@ -54,16 +53,16 @@ export async function atualizar(req, res, next) {
   }
 }
 
-export async function enviarImagem(req, res, next) {
-  try {
-    const imagemUrl = `/uploads/professores/${req.file.filename}`;
-    const professor = await ProfessorService
-  .salvarImagem(req.params.id, imagemUrl);
-    return res.status(200).json({ sucesso: true, dados: professor });
-  } catch (erro) {
-    return responderErro(erro, res, next);
-  }
-}
+// export async function enviarImagem(req, res, next) {
+//   try {
+//     const imagemUrl = `/uploads/professores/${req.file.filename}`;
+//     const professor = await ProfessorService
+//   .salvarImagem(req.params.id, imagemUrl);
+//     return res.status(200).json({ sucesso: true, dados: professor });
+//   } catch (erro) {
+//     return responderErro(erro, res, next);
+//   }
+// }
 
 export async function excluir(req, res, next) {
   try {

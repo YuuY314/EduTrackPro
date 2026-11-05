@@ -35,7 +35,7 @@ export async function buscarPorId(id) {
 
 // 3. Inserção
 export async function criar(aluno) {
-  const sql = 'INSERT INTO alunos (matricula, nome, cpf, endereco, email_institucional) VALUES (?, ?, ?, ?)';
+  const sql = 'INSERT INTO alunos (matricula, nome, cpf, endereco, email_institucional) VALUES (?, ?, ?, ?, ?)';
   const valores = [aluno.matricula, aluno.nome, aluno.cpf, aluno.endereco, aluno.email_institucional];
   const [resultado] = await pool.query(sql, valores);
   return { ...aluno, id: resultado.insertId, imagem_url: null };

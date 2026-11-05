@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { resolve } from 'node:path';
 
+import { professorRouter } from './routes/ProfessorRoutes.js';
 import { usuarioRouter } from './routes/UsuarioRoutes.js';
 import { alunoRouter, configurarSegurancaAlunos } from './routes/AlunoRoutes.js';
 // import { authRouter } from './routes/AuthRoutes.js';

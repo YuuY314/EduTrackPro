@@ -1,4 +1,4 @@
-export default class professorid_professor {
+export default class Professor {
     constructor({
         id_professor, id_usuario, nome, cpf, email, telefone
     }) {
@@ -11,13 +11,13 @@ export default class professorid_professor {
         if (typeof nome !== 'string' || nome.trim() === '') {
             throw new TypeError('Nome é obrigatório');
         }
-        if (typeof nome !== 'string' || cpf.trim() === '') {
+        if (typeof cpf !== 'string' || cpf.trim() === '') {
             throw new TypeError('CPF é obrigatório');
         }
-        if (typeof nome !== 'string' || email.trim() === '') {
+        if (typeof email !== 'string' || email.trim() === '') {
             throw new TypeError('Email Institucional é obrigatório');
         }
-        if (typeof nome !== 'string' || telefone.trim() === '') {
+        if (typeof telefone !== 'string' || telefone.trim() === '') {
             throw new TypeError('Email Institucional é obrigatório');
         }
         this.id_professor = id_professor;

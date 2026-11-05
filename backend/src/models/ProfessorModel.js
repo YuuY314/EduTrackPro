@@ -5,7 +5,7 @@ const pool = typeof dbModule.criarPool === 'function' ? dbModule.criarPool() : d
 
 function hidratarProfessor(linha) {
   if (!linha) return null;
-  return { ...linha, nome: Number(linha.nome) };
+  return { ...linha };
 }
 
 // 1. Listagem com paginação parametrizada
@@ -30,21 +30,20 @@ export async function listar({ limite, offset }) {
 export async function buscarPorId(id) {
   const [linhas] = await pool.query('SELECT * FROM professores WHERE id_professor = ?', [id]);
   if (linhas.length === 0) return null;
-  return hidratarProfessor
-(linhas[0]);
+  return hidratarProfessor(linhas[0]);
 }
 
 // 3. Inserção
 export async function criar(professor) {
-  const sql = 'INSERT INTO professores (nome, cpf, email, telefone) VALUES (?, ?, ?, ?)';
-  const valores = [professor.nome, professor.cpf, professor.email, professor.telefone];
+  const sql = 'INSERT INTO professores (id_usuario, nome, cpf, email, telefone) VALUES (?, ?, ?, ?, ?)';
+  const valores = [professor.id_usuario, professor.nome, professor.cpf, professor.email, professor.telefone];
   const [resultado] = await pool.query(sql, valores);
-  return { ...professor, id: resultado.insertId, imagem_url: null };
+  return { ...professor, id_professor: resultado.insertId};
 }
 
 // 4. Atualização completa (PUT)
 export async function atualizar(id, professor) {
-  const sql = 'UPDATE professores SET nome = ?, cpf = ?, email = ? WHERE id_professor = ?';
+  const sql = 'UPDATE professores SET nome = ?, cpf = ?, email = ?, telefone = ? WHERE id_professor = ?';
   const valores = [professor.nome, professor.cpf, professor.email, professor.telefone, id];
   const [resultado] = await pool.query(sql, valores);
   return resultado.affectedRows > 0;

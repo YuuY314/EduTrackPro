@@ -1,4 +1,4 @@
-import professor from '../models/Professores.js';
+import Professor from '../models/Professor.js';
 import * as ProfessorModel from '../models/ProfessorModel.js';
 
 function validarId(idRecebido) {
@@ -44,13 +44,13 @@ export async function buscarPorId(idRecebido) {
 }
 
 export async function criar(dados) {
-  const professorDominio = new professor({ id: 1, ...dados });
+  const professorDominio = new Professor({ id_professor: 1, ...dados });
   return await ProfessorModel.criar(professorDominio);
 }
 
 export async function atualizar(idRecebido, dados) {
   const id = validarId(idRecebido);
-  const professorDominio = new professor({ id, ...dados });
+  const professorDominio = new Professor({ id_professor: id, ...dados });
   const atualizou = await ProfessorModel.atualizar(id, professorDominio);
   if (!atualizou) {
     throw new Error(`Professor ${id} não encontrado.`);
@@ -58,14 +58,14 @@ export async function atualizar(idRecebido, dados) {
   return await ProfessorModel.buscarPorId(id);
 }
 
-export async function salvarImagem(idRecebido, imagemUrl) {
-  const id = validarId(idRecebido);
-  const atualizou = await ProfessorModel.atualizarImagem(id, imagemUrl);
-  if (!atualizou) {
-    throw new Error(`Professor ${id} não encontrado.`);
-  }
-  return await ProfessorModel.buscarPorId(id);
-}
+// export async function salvarImagem(idRecebido, imagemUrl) {
+//   const id = validarId(idRecebido);
+//   const atualizou = await ProfessorModel.atualizarImagem(id, imagemUrl);
+//   if (!atualizou) {
+//     throw new Error(`Professor ${id} não encontrado.`);
+//   }
+//   return await ProfessorModel.buscarPorId(id);
+// }
 
 export async function excluir(idRecebido) {
   const id = validarId(idRecebido);
