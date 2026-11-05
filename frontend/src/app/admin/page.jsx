@@ -2,7 +2,7 @@ import CartaoNumero from '@/src/components/CartaoNumero';
 import ListaItem from '@/src/components/ListaItem';
 import Etiqueta from '@/src/components/Etiqueta';
 
-export const metadata = { title: 'Painel · Sophos Academy' };
+export const metadata = { title: 'Painel · EduTrackPro' };
 
 export default function Painel() {
   return (

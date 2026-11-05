@@ -1,7 +1,7 @@
 import TituloPagina from '@/src/components/TituloPagina';
 import Chamada from './Chamada';
 
-export const metadata = { title: 'Chamada · Sophos Academy' };
+export const metadata = { title: 'Chamada · EduTrackPro' };
 
 export default function ChamadaPage() {
   return (

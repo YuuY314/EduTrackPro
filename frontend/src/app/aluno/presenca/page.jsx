@@ -3,7 +3,7 @@ import Etiqueta from '@/src/components/Etiqueta';
 import { presencaPorComponente } from '@/src/lib/dados';
 import { corDaPresenca } from '@/src/lib/utils';
 
-export const metadata = { title: 'Presença · Sophos Academy' };
+export const metadata = { title: 'Presença · EduTrackPro' };
 
 export default function Presenca() {
   return (

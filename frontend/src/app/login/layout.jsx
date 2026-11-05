@@ -1,4 +1,4 @@
-export const metadata = { title: 'Entrar · Sophos Academy' };
+export const metadata = { title: 'Entrar · EduTrackPro' };
 
 export default function LoginLayout({ children }) {
   return children;

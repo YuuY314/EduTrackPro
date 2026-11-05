@@ -3,7 +3,7 @@ import Etiqueta from '@/src/components/Etiqueta';
 import { boletim } from '@/src/lib/dados';
 import { corDaNota } from '@/src/lib/utils';
 
-export const metadata = { title: 'Boletim · Sophos Academy' };
+export const metadata = { title: 'Boletim · EduTrackPro' };
 
 const colunas = ['1º Bimestre', '2º Bimestre', '3º Bimestre', '4º Bimestre', 'Conselho final'];
 

@@ -1,7 +1,7 @@
 import TituloPagina from '@/src/components/TituloPagina';
 import Notas from './Notas';
 
-export const metadata = { title: 'Notas · Sophos Academy' };
+export const metadata = { title: 'Notas · EduTrackPro' };
 
 export default function NotasPage() {
   return (

@@ -2,7 +2,7 @@ import CartaoNumero from '@/src/components/CartaoNumero';
 import Agenda from '@/src/components/Agenda';
 import { agenda } from '@/src/lib/dados';
 
-export const metadata = { title: 'Início · Sophos Academy' };
+export const metadata = { title: 'Início · EduTrackPro' };
 
 export default function InicioAluno() {
   return (

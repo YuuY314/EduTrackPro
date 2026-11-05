@@ -1,7 +1,7 @@
 import TituloPagina from '@/src/components/TituloPagina';
 import Alunos from './Alunos';
 
-export const metadata = { title: 'Alunos · Sophos Academy' };
+export const metadata = { title: 'Alunos · EduTrackPro' };
 
 export default function AlunosPage() {
   return (

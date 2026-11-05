@@ -41,8 +41,8 @@ export default function LoginPage() {
 
       <section className="login-marca">
         <div className="login-marca-conteudo">
-          <Image src="/img/logo.svg" alt="" width={72} height={72} priority />
-          <h1>Sophos Academy</h1>
+          <Image src="/img/logo.svg" alt="" width={128} height={128} priority className='login-logo' />
+          <h1>EduTrackPro</h1>
           <p>Notas, presença e agenda da escola num só lugar.</p>
         </div>
       </section>

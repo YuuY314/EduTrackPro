@@ -4,7 +4,7 @@ import ListaItem from '@/src/components/ListaItem';
 import Etiqueta from '@/src/components/Etiqueta';
 import { aulasDeHoje } from '@/src/lib/dados';
 
-export const metadata = { title: 'Início · Sophos Academy' };
+export const metadata = { title: 'Início · EduTrackPro' };
 
 export default function InicioProfessor() {
   return (

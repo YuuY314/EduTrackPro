@@ -44,8 +44,14 @@
   text-align: center;
 }
 
+.login-logo {
+  display: block;
+  margin: 0 auto;
+  width: 228px;
+  height: 228px;
+}
+
 .login-marca h1 {
-  margin-top: 16px;
   font-size: 2rem;
 }
 

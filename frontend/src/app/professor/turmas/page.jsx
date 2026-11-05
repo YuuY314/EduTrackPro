@@ -4,7 +4,7 @@ import Etiqueta from '@/src/components/Etiqueta';
 import { turmas } from '@/src/lib/dados';
 import { corDaNota } from '@/src/lib/utils';
 
-export const metadata = { title: 'Minhas turmas · Sophos Academy' };
+export const metadata = { title: 'Minhas turmas · EduTrackPro' };
 
 export default function MinhasTurmas() {
   return (

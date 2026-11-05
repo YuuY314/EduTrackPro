@@ -2,7 +2,7 @@ import TituloPagina from '@/src/components/TituloPagina';
 import Etiqueta from '@/src/components/Etiqueta';
 import { turmas } from '@/src/lib/dados';
 
-export const metadata = { title: 'Turmas · Sophos Academy' };
+export const metadata = { title: 'Turmas · EduTrackPro' };
 
 export default function TurmasAdmin() {
   return (

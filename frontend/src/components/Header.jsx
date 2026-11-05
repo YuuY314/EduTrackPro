@@ -49,7 +49,7 @@ export default function Header({ perfil }) {
 
         <Link className="logo" href={usuario.inicio}>
           <Image src="/img/logo.svg" alt="" width={36} height={36} />
-          Sophos Academy
+          EduTrackPro
         </Link>
 
         <nav className="nav">

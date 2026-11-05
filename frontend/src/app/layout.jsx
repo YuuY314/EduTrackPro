@@ -8,8 +8,8 @@ import '@fontsource/nunito-sans/800.css';
 import './globals.css';
 
 export const metadata = {
-  title: 'Sophos Academy',
-  description: 'Sistema acadêmico da Sophos Academy',
+  title: 'EduTrackPro',
+  description: 'Sistema acadêmico da EduTrackPro',
 };
 
 export default function RootLayout({ children }) {
