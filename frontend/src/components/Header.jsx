@@ -89,9 +89,6 @@ export default function Header({ perfil }) {
                   <strong>{usuario.nomeCompleto}</strong>
                   <small>{usuario.detalheCompleto}</small>
                 </div>
-                {usuario.opcoes.map((opcao) => (
-                  <a key={opcao} href="#">{opcao}</a>
-                ))}
                 <Link href="/login" className="sair">Sair</Link>
               </div>
             )}
