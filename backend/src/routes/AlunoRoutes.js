@@ -1,23 +1,23 @@
-import express from 'express';
-import * as AlunoController from '../controller/AlunoController.js';
-// import { uploadImagem } from '../middlewares/UploadMiddleware.js';
+// =====================================================================
+// routes/AlunoRoutes.js - cadastro de alunos (prefixo /api/alunos)
+//
+// Professor pode CONSULTAR alunos; só o admin cria, edita e remove.
+// =====================================================================
 
-// Middlewares de autenticação (serão ativados na Sessão 2)
-// Inicialmente passam direto para não travar a Sessão 1
-let autenticar = (_req, _res, next) => next();
-let autorizarAdmin = (_req, _res, next) => next();
+import { Router } from 'express';
 
-export const alunoRouter = express.Router();
+import * as AlunoController from '../controllers/AlunoController.js';
+import { autenticar, exigirPerfil } from '../middlewares/autenticar.js';
 
-alunoRouter.get('/', AlunoController.listar);
-alunoRouter.get('/:id', AlunoController.buscarPorId);
-alunoRouter.post('/', (req, res, next) => autenticar(req, res, next), AlunoController.criar);
-alunoRouter.put('/:id', (req, res, next) => autenticar(req, res, next), AlunoController.atualizar);
-// alunoRouter.patch('/:id/imagem', (req, res, next) => autenticar(req, res, next), uploadImagem, AlunoController.enviarImagem);
-alunoRouter.delete('/:id', (req, res, next) => autenticar(req, res, next), (req, res, next) => autorizarAdmin(req, res, next), AlunoController.excluir);
+export const alunoRouter = Router();
 
-export function configurarSegurancaAlunos(middlewareAuth, middlewareAdmin) {
-  // Substitui os middlewares provisórios da Sessão 1 pelos middlewares reais.
-  if (middlewareAuth) autenticar = middlewareAuth;
-  if (middlewareAdmin) autorizarAdmin = middlewareAdmin;
-}
+alunoRouter.use(autenticar); // todas as rotas abaixo exigem token
+
+const leitura = exigirPerfil('admin', 'professor');
+const escrita = exigirPerfil('admin');
+
+alunoRouter.get('/', leitura, AlunoController.listar);
+alunoRouter.get('/:id', leitura, AlunoController.buscarPorId);
+alunoRouter.post('/', escrita, AlunoController.criar);
+alunoRouter.put('/:id', escrita, AlunoController.atualizar);
+alunoRouter.delete('/:id', escrita, AlunoController.excluir);

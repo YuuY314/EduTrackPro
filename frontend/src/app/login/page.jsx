@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
+import { login } from '@/src/lib/api';
 import './login.css';
 
 const opcoesPerfil = [
@@ -19,10 +20,11 @@ export default function LoginPage() {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [lembrar, setLembrar] = useState(false);
   const [erros, setErros] = useState({});
   const [entrando, setEntrando] = useState(false);
 
-  function entrar(evento) {
+  async function entrar(evento) {
     evento.preventDefault();
 
     const novosErros = {};
@@ -33,7 +35,13 @@ export default function LoginPage() {
     if (Object.keys(novosErros).length > 0) return;
 
     setEntrando(true);
-    router.push(perfis[perfil].inicio);
+    try {
+      const { usuario: logado } = await login({ login: usuario.trim(), senha, perfil, lembrar });
+      router.push(perfis[logado.perfil].inicio);
+    } catch (erro) {
+      setErros({ geral: erro.message });
+      setEntrando(false);
+    }
   }
 
   return (
@@ -74,7 +82,7 @@ export default function LoginPage() {
               id="usuario"
               type="text"
               autoComplete="username"
-              placeholder="ex.: gabriel.freitas@escola.sp.gov.br"
+              placeholder="ex.: ana.souza@aluno.escola.edu.br"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
               aria-invalid={!!erros.usuario}
@@ -102,17 +110,19 @@ export default function LoginPage() {
 
           <div className="login-opcoes">
             <label>
-              <input type="checkbox" /> Lembrar de mim
+              <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} /> Lembrar de mim
             </label>
             <a href="#">Esqueci minha senha</a>
           </div>
+
+          {erros.geral && <span className="login-erro" role="alert">{erros.geral}</span>}
 
           <button className="botao login-botao" type="submit" disabled={entrando}>
             {entrando ? 'Entrando…' : 'Entrar'}
           </button>
 
           <p className="login-dica">
-            Protótipo: qualquer e-mail e senha (4+ caracteres) entram no perfil escolhido.
+            Teste: ana.souza@aluno.escola.edu.br, ricardo.menezes@escola.edu.br ou secretaria@escola.edu.br, senha 123456.
           </p>
         </form>
       </section>

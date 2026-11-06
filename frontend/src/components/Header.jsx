@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
+import { sair } from '@/src/lib/api';
 
 export default function Header({ perfil }) {
   const usuario = perfis[perfil];
@@ -92,7 +93,7 @@ export default function Header({ perfil }) {
                 {usuario.opcoes.map((opcao) => (
                   <a key={opcao} href="#">{opcao}</a>
                 ))}
-                <Link href="/login" className="sair">Sair</Link>
+                <Link href="/login" className="sair" onClick={sair}>Sair</Link>
               </div>
             )}
           </div>

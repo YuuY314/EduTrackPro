@@ -1,76 +1,62 @@
-import professor from '../models/Professores.js';
+// =====================================================================
+// services/ProfessorService.js - regras do cadastro de professores
+//
+// Mesmo raciocínio do AlunoService: professor + login em transação.
+// =====================================================================
+
+import { emTransacao } from '../config/database.js';
 import * as ProfessorModel from '../models/ProfessorModel.js';
+import * as UsuarioModel from '../models/UsuarioModel.js';
+import { AppError } from '../utils/AppError.js';
+import { gerarHash } from '../utils/senha.js';
+import { lerPaginacao, lerTextos, montarPaginacao, paraId } from '../utils/validacoes.js';
 
-function validarId(idRecebido) {
-  const id = Number(idRecebido);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new TypeError('ID deve ser um número inteiro positivo.');
-  }
-  return id;
-}
+const TEXTOS = ['nome', 'cpf', 'email'];
 
-export async function listar({ pagina = 1, limite = 10 } = {}) {
-  const paginaNum = Number(pagina);
-  const limiteNum = Number(limite);
-
-  if (!Number.isInteger(paginaNum) || paginaNum <= 0) {
-    throw new TypeError('Página deve ser um número inteiro positivo.');
-  }
-  if (!Number.isInteger(limiteNum) || limiteNum < 1 || limiteNum > 100) {
-    throw new TypeError('Limite deve ser um inteiro entre 1 e 100.');
-  }
-
-  const offset = (paginaNum - 1) * limiteNum;
-  const { professores, total } = await ProfessorModel.listar({ limite: limiteNum, offset });
-
-  return {
-    professores,
-    paginacao: {
-      pagina: paginaNum,
-      limite: limiteNum,
-      total,
-      totalPaginas: Math.ceil(total / limiteNum)
-    }
-  };
+export async function listar(query) {
+  const paginacao = lerPaginacao(query);
+  const { professores, total } = await ProfessorModel.listar(paginacao);
+  return { dados: professores, paginacao: montarPaginacao(paginacao, total) };
 }
 
 export async function buscarPorId(idRecebido) {
-  const id = validarId(idRecebido);
+  const id = paraId(idRecebido);
   const professor = await ProfessorModel.buscarPorId(id);
-  if (!professor) {
-    throw new Error(`Professor ${id} não encontrado.`);
-  }
+  if (!professor) throw new AppError(`Professor ${id} não encontrado.`, 404);
   return professor;
 }
 
-export async function criar(dados) {
-  const professorDominio = new professor({ id: 1, ...dados });
-  return await ProfessorModel.criar(professorDominio);
+// body: { nome, cpf, email, senha, telefone? }
+export async function criar(body = {}) {
+  const dados = lerTextos(body, { obrigatorios: [...TEXTOS, 'senha'], opcionais: ['telefone'] });
+  const senha_hash = await gerarHash(dados.senha);
+
+  const id = await emTransacao(async (conexao) => {
+    const id_usuario = await UsuarioModel.criar({ email: dados.email, senha_hash, perfil: 'professor' }, conexao);
+    return ProfessorModel.criar({ ...dados, id_usuario }, conexao);
+  });
+
+  return ProfessorModel.buscarPorId(id);
 }
 
-export async function atualizar(idRecebido, dados) {
-  const id = validarId(idRecebido);
-  const professorDominio = new professor({ id, ...dados });
-  const atualizou = await ProfessorModel.atualizar(id, professorDominio);
-  if (!atualizou) {
-    throw new Error(`Professor ${id} não encontrado.`);
-  }
-  return await ProfessorModel.buscarPorId(id);
+export async function atualizar(idRecebido, body = {}) {
+  const atual = await buscarPorId(idRecebido);
+  const campos = lerTextos(body, { opcionais: [...TEXTOS, 'telefone'] });
+
+  await emTransacao(async (conexao) => {
+    await ProfessorModel.atualizar(atual.id_professor, campos, conexao);
+    if (campos.email) await UsuarioModel.atualizarEmail(atual.id_usuario, campos.email, conexao);
+  });
+
+  return ProfessorModel.buscarPorId(atual.id_professor);
 }
 
-export async function salvarImagem(idRecebido, imagemUrl) {
-  const id = validarId(idRecebido);
-  const atualizou = await ProfessorModel.atualizarImagem(id, imagemUrl);
-  if (!atualizou) {
-    throw new Error(`Professor ${id} não encontrado.`);
-  }
-  return await ProfessorModel.buscarPorId(id);
-}
-
+// Se o professor ainda dá aula em alguma turma, o MySQL recusa
+// (FK em turma_disciplina_professor) e o errorHandler responde 409.
 export async function excluir(idRecebido) {
-  const id = validarId(idRecebido);
-  const removeu = await ProfessorModel.excluir(id);
-  if (!removeu) {
-    throw new Error(`Professor ${id} não encontrado.`);
-  }
+  const professor = await buscarPorId(idRecebido);
+  await emTransacao(async (conexao) => {
+    await ProfessorModel.excluir(professor.id_professor, conexao);
+    await UsuarioModel.excluir(professor.id_usuario, conexao);
+  });
 }

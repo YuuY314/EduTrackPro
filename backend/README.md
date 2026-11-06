@@ -1,142 +1,80 @@
-# Back-end - Sistema escolar
+# Back-end - EduTrackPro
 
-API em **Node.js + Express 5 + MySQL** (ES Modules, `mysql2`, JWT).
+API em **Node.js + Express 5 + MySQL** (ES Modules, `mysql2`, `jsonwebtoken`, `bcryptjs`).
 
 ## Como rodar
 
 ```bash
 npm install
-cp .env.example .env        # depois edite o .env com seus dados do MySQL
+cp .env.example .env        # ajuste DB_PORT / DB_USER / DB_PASSWORD do seu MySQL
 ```
 
-1. Importe o banco: `mysql -u root -p < database/sistema_escolar.sql`
-   (cria o banco `sistema_escolar`, as tabelas e os dados da turma 3A).
-2. `npm run seed:senhas` define a senha **123456** para todos os usuários de teste.
-3. `npm run dev` (reinicia sozinho ao salvar) ou `npm start`.
-4. Abra `http://localhost:3000/api/saude`: deve responder `{"status":"ok"}`.
+1. Importe o banco: `mysql -u root -p < ../database/init/01-edutrackpro.sql`
+   (cria o banco `edutrackpro` com a turma 3A; todos os usuários já vêm com a senha **123456**).
+2. `npm run dev` (reinicia sozinho ao salvar) ou `npm start`.
+3. Abra `http://localhost:8080/api/health`: deve responder `{"status":"ok"}`.
 
 ### Logins de teste (senha `123456`)
 
-| Perfil    | E-mail                          |
-|-----------|---------------------------------|
-| Aluno     | ana.souza@aluno.escola.edu.br   |
-| Professor | ricardo.menezes@escola.edu.br (Matemática) |
-| Admin     | secretaria@escola.edu.br        |
+| Perfil    | E-mail ou RA |
+|-----------|--------------|
+| Aluno     | `ana.souza@aluno.escola.edu.br` ou `20263A001` |
+| Professor | `ricardo.menezes@escola.edu.br` |
+| Admin     | `secretaria@escola.edu.br` |
 
-Os 11 professores seguem o padrão `nome.sobrenome@escola.edu.br`; os 20 alunos,
-`nome.sobrenome@aluno.escola.edu.br`. Veja o arquivo `requests.http` para testar.
+### Token de teste sem passar pelo login
 
-## Estrutura de pastas
-
-```
-app.js                  monta tudo (pool -> models -> services -> controllers -> rotas) e sobe o servidor
-config/
-  ambiente.js           lê e valida o .env
-  database.js           pool do MySQL + helper de transação
-middlewares/
-  autenticacao.js       exige token JWT válido
-  autorizacao.js        exige o perfil certo (aluno/professor/admin)
-  validacao.js          valida o body com zod
-  tratarErros.js        respostas de erro padronizadas { "erro": "..." }
-routes/                 caminho + middlewares -> controller   (sem lógica)
-controller/             lê req, chama o service, devolve res  (sem regra, sem SQL)
-services/               regras de negócio e permissões
-models/                 SQL puro
-utils/                  AppError, senha (bcrypt), token (jwt), helpers
-scripts/                definirSenhasDeTeste.js
-database/               sistema_escolar.sql
+```bash
+npm run token          # admin (usuário 32)
+npm run token -- 12    # qualquer id_usuario
 ```
 
-### Caminho de uma requisição
+Envie em `Authorization: Bearer <token>`.
+
+## Estrutura
 
 ```
-GET /api/alunos/me/boletim
-  routes      alunos.routes.js       autenticar -> exigirPerfil("aluno")
-  controller  alunos.controller.js   pega o id_aluno do TOKEN
-  services    alunos.service.js      junta médias + notas e organiza
-  models      alunos.model.js        executa o SQL
+src/
+  server.js               sobe o servidor
+  app.js                  helmet, cors, rotas, 404 e erros
+  config/
+    ambiente.js           lê e valida o .env
+    database.js           pool único do MySQL + emTransacao()
+  middlewares/
+    autenticar.js         autenticar (exige token) e exigirPerfil('admin', ...)
+    errorHandler.js       erros padronizados { "erro": "..." }
+  routes/                 caminho + middlewares -> controller
+  controllers/            lê req, chama o service, devolve res
+  services/               regras de negócio (validação, transação, senha)
+  models/                 SQL puro
+  utils/                  AppError, token (JWT), senha (bcrypt), validacoes, sql
+  dev-utils/
+    generateInitialToken.js   npm run token
 ```
 
-### Em que ordem ler o código
+### Por que não há controller/service de Admin nem de Usuário?
 
-1. `config/ambiente.js` e `config/database.js`
-2. `utils/` e `middlewares/`
-3. Um domínio simples completo: `disciplinas` (model -> service -> controller -> routes)
-4. `app.js` (veja como as peças se encaixam)
-5. `auth` (login e token)
-6. `alunos` (área do aluno) e `turmas` / `avaliacoes` / `aulas` (área do professor)
-7. `services/permissoes.service.js` (a regra "professor só mexe no que leciona")
-
-## Conceitos que aparecem no código
-
-- **Injeção de dependência**: cada arquivo exporta uma função que recebe o que precisa
-  (`criarXModel({ pool })`) em vez de importar direto. O `app.js` faz as ligações.
-- **tdp** = tabela `turma_disciplina_professor` ("quem dá qual matéria em qual turma").
-  Horários, aulas, avaliações e tarefas são ligados a ele; por isso o cronograma muda
-  conforme a turma e o professor só acessa o que leciona.
-- **O aluno usa `/me`**: o id vem do token, nunca da URL.
-- **Express 5** encaminha erros de funções `async` para o `tratarErros` sozinho.
+- **Admin** não é uma tabela, é um valor de `usuarios.perfil`. O que muda para o admin é
+  *o que ele pode acessar*, e isso é resolvido na rota com `exigirPerfil('admin')`.
+- **Usuário** é o login. O que se faz com ele é autenticar (`AuthService`). Criar/apagar
+  usuário acontece junto com o aluno/professor, dentro de uma transação, então o
+  `UsuarioModel` (SQL) existe, mas não precisa de controller/service próprios.
+- **Aluno** e **Professor** têm tabelas e cadastros próprios, por isso têm o trio
+  model -> service -> controller.
 
 ## Endpoints (prefixo `/api`)
 
-Resposta de sucesso: `200` (GET), `201` (criação, devolve o id), `204` (atualização/remoção).
 Erros: `{ "erro": "mensagem" }` com `400` dados inválidos, `401` sem login, `403` sem permissão,
 `404` não encontrado, `409` duplicado/em uso, `422` referência inválida.
-Enviar o token em `Authorization: Bearer <token>`.
 
-### Auth
 | Método | Rota | Quem | O que faz |
 |---|---|---|---|
-| POST | `/auth/login` | público | `{email, senha}` -> `{token, usuario}` |
-| GET | `/auth/me` | logado | dados do usuário logado |
-| PUT | `/auth/senha` | logado | `{senha_atual, nova_senha}` |
-
-### Aluno (id vem do token)
-| Método | Rota | O que faz |
-|---|---|---|
-| GET | `/alunos/me` | ficha: turma e responsável |
-| GET | `/alunos/me/home` | resumo: pendências, faltas, próximas tarefas, últimos avisos |
-| GET | `/alunos/me/horarios` | cronograma da turma |
-| GET | `/alunos/me/boletim` | notas e médias por disciplina/bimestre |
-| GET | `/alunos/me/frequencia` | total de faltas, % e detalhe |
-| GET | `/alunos/me/tarefas` | tarefas da turma |
-| GET | `/alunos/me/avisos` | avisos da turma + gerais |
-
-### Professor
-| Método | Rota | O que faz |
-|---|---|---|
-| GET | `/professores/me/turmas` | turmas dele (com `id_tdp` de cada disciplina) |
-| GET | `/professores/me/horarios` | agenda semanal |
-| GET | `/turmas/:idTurma/alunos` | alunos da turma |
-| GET | `/turmas/:idTurma/alunos/:idAluno` | "entrar no aluno": ficha, notas e faltas das disciplinas dele |
-| POST | `/avaliacoes` | `{id_tdp, titulo, bimestre, peso?, data?}` |
-| GET | `/avaliacoes?turma=&tdp=&bimestre=` | lista (filtros opcionais) |
-| PUT/DELETE | `/avaliacoes/:id` | edita/remove |
-| GET | `/avaliacoes/:id/notas` | alunos da turma com a nota atual |
-| PUT | `/avaliacoes/:id/notas/:idAluno` | `{valor}` lança/corrige a nota de um aluno |
-| PUT | `/avaliacoes/:id/notas` | `{notas:[{id_aluno, valor}]}` em lote |
-| POST | `/aulas` | `{id_tdp, data, conteudo?}` registra a aula do dia |
-| GET | `/aulas?turma=&tdp=&data=` | lista aulas |
-| GET | `/aulas/:id/frequencias` | tela de chamada (presente: true/false/null) |
-| PUT | `/aulas/:id/frequencias` | `{frequencias:[{id_aluno, presente, justificativa?}]}` |
-| PATCH | `/aulas/:id/frequencias/:idAluno` | `{presente, justificativa?}` marca/corrige uma falta |
-| POST/GET/PUT/DELETE | `/tarefas` (GET exige `?turma=`) | tarefas |
-| POST/GET/PUT/DELETE | `/avisos` | professor: só da turma dele; admin: também gerais (sem `id_turma`) |
-| GET | `/horarios?turma=` | cronograma de uma turma |
-
-### Admin
-| Método | Rota | O que faz |
-|---|---|---|
-| GET/POST/PUT/DELETE | `/alunos`, `/alunos/:id` | cadastro de alunos (cria login + responsável junto) |
-| GET/POST/PUT/DELETE | `/professores`, `/professores/:id` | cadastro de professores |
-| POST/PUT/DELETE | `/turmas`, `/turmas/:idTurma` | turmas |
-| GET/POST/DELETE | `/turmas/:idTurma/disciplinas` | atribui disciplina + professor à turma (cria o tdp) |
-| GET/POST/PUT/DELETE | `/disciplinas` (GET liberado a todos logados) | disciplinas |
-| POST/PUT/DELETE | `/horarios`, `/horarios/:id` | monta o cronograma |
-
-## Dicas
-
-- O `.env` **não** vai para o Git. Troque `JWT_SECRET` por uma string longa e aleatória.
-- Em produção, não rode `seed:senhas`: cada usuário deve ter a própria senha.
-- Para criar a 3B, 3C...: `POST /turmas`, `POST /alunos`, `POST /turmas/:id/disciplinas`
-  e `POST /horarios`, ou adicione INSERTs no SQL.
+| POST | `/auth/login` | público | `{login, senha, perfil, lembrar?}` -> `{token, usuario}` |
+| GET | `/auth/me` | logado | dados do usuário do token |
+| GET | `/alunos?pagina=&limite=` | admin, professor | lista paginada |
+| GET | `/alunos/:id` | admin, professor | um aluno |
+| POST | `/alunos` | admin | `{matricula, nome, cpf, email_institucional, senha, id_turma, id_responsavel, endereco?}` (cria o login junto) |
+| PUT | `/alunos/:id` | admin | atualiza só os campos enviados |
+| DELETE | `/alunos/:id` | admin | remove aluno + login |
+| GET/POST/PUT/DELETE | `/professores`, `/professores/:id` | admin | mesmo padrão: `{nome, cpf, email, senha, telefone?}` |
+| GET | `/health` | público | testa API + MySQL |

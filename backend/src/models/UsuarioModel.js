@@ -1,63 +1,50 @@
-import * as dbModule from '../config/database.js';
+// =====================================================================
+// models/UsuarioModel.js - SQL da tabela "usuarios" (o LOGIN)
+//
+// A tabela usuarios guarda só e-mail, hash da senha e perfil. O nome
+// fica em alunos/professores, por isso as buscas fazem LEFT JOIN nas
+// duas e devolvem também id_aluno / id_professor (que vão para o token).
+//
+// O parâmetro "db" permite rodar a query dentro de uma transação
+// (emTransacao) ou direto no pool (padrão).
+// =====================================================================
 
-// Suporta tanto o pool exportado diretamente quanto a fábrica criarPool()
-const pool = typeof dbModule.criarPool === 'function' ? dbModule.criarPool() : dbModule.pool;
+import { pool } from '../config/database.js';
 
-function hidratarUsuario(linha) {
-  if (!linha) return null;
-  return { ...linha, email: Number(linha.email) };
-}
+const SELECT_USUARIO = `
+  SELECT u.id_usuario, u.email, u.senha_hash, u.perfil,
+         a.id_aluno, p.id_professor,
+         COALESCE(a.nome, p.nome, 'Secretaria') AS nome
+    FROM usuarios u
+    LEFT JOIN alunos      a ON a.id_usuario = u.id_usuario
+    LEFT JOIN professores p ON p.id_usuario = u.id_usuario`;
 
-// 1. Listagem com paginação parametrizada
-export async function listar({ limite, offset }) {
-  const limiteNum = Number.parseInt(limite, 10);
-  const offsetNum = Number.parseInt(offset, 10);
-
-  const [linhas] = await pool.query(
-    'SELECT * FROM usuarios ORDER BY id_usuario LIMIT ? OFFSET ?',
-    [limiteNum, offsetNum]
+// Login aceita e-mail OU RA (matrícula do aluno).
+export async function buscarParaLogin(login) {
+  const [linhas] = await pool.execute(
+    `${SELECT_USUARIO} WHERE u.email = ? OR a.matricula = ? LIMIT 1`,
+    [login, login]
   );
-
-  const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM usuarios');
-
-  return {
-    usuarios: linhas.map(hidratarUsuario),
-    total: Number(total)
-  };
+  return linhas[0] ?? null;
 }
 
-// 2. Busca por ID
 export async function buscarPorId(id) {
-  const [linhas] = await pool.query('SELECT * FROM usuarios WHERE id_usuario = ?', [id]);
-  if (linhas.length === 0) return null;
-  return hidratarUsuario(linhas[0]);
+  const [linhas] = await pool.execute(`${SELECT_USUARIO} WHERE u.id_usuario = ?`, [id]);
+  return linhas[0] ?? null;
 }
 
-// 3. Inserção
-export async function criar(usuario) {
-  const sql = 'INSERT INTO usuarios (email, senha_hash, perfil) VALUES (?, ?, ?, ?)';
-  const valores = [usuario.email, usuario.senha_hash, usuario.perfil ];
-  const [resultado] = await pool.query(sql, valores);
-  return { ...usuario, id: resultado.insertId, imagem_url: null };
+export async function criar({ email, senha_hash, perfil }, db = pool) {
+  const [resultado] = await db.execute(
+    'INSERT INTO usuarios (email, senha_hash, perfil) VALUES (?, ?, ?)',
+    [email, senha_hash, perfil]
+  );
+  return resultado.insertId;
 }
 
-// 4. Atualização completa (PUT)
-export async function atualizar(id, usuario) {
-  const sql = 'UPDATE usuarios SET email = ?, senha_hash = ?, perfil = ? WHERE id_usuario = ?';
-  const valores = [usuario.email, usuario.senha_hash, usuario.perfil, id];
-  const [resultado] = await pool.query(sql, valores);
-  return resultado.affectedRows > 0;
+export async function atualizarEmail(id, email, db = pool) {
+  await db.execute('UPDATE usuarios SET email = ? WHERE id_usuario = ?', [email, id]);
 }
 
-// 5. Atualizar URL da imagem (PATCH)
-// export async function atualizarImagem(id, imagemUrl) {
-//   const sql = 'UPDATE usuario SET imagem_url = ? WHERE id = ?';
-//   const [resultado] = await pool.query(sql, [imagemUrl, id]);
-//   return resultado.affectedRows > 0;
-// }
-
-// 6. Remoção (DELETE)
-export async function excluir(id) {
-  const [resultado] = await pool.query('DELETE FROM usuarios WHERE id_usuario = ?', [id]);
-  return resultado.affectedRows > 0;
+export async function excluir(id, db = pool) {
+  await db.execute('DELETE FROM usuarios WHERE id_usuario = ?', [id]);
 }

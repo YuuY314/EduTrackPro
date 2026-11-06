@@ -1,63 +1,49 @@
-import * as dbModule from '../config/database.js';
+// =====================================================================
+// models/AlunoModel.js - SQL da tabela "alunos"
+// =====================================================================
 
-// Suporta tanto o pool exportado diretamente quanto a fábrica criarPool()
-const pool = typeof dbModule.criarPool === 'function' ? dbModule.criarPool() : dbModule.pool;
+import { pool } from '../config/database.js';
+import { montarSet } from '../utils/sql.js';
 
-function hidratarAluno(linha) {
-  if (!linha) return null;
-  return { ...linha, nome: Number(linha.nome) };
-}
+export const COLUNAS_EDITAVEIS = [
+  'id_turma', 'id_responsavel', 'matricula', 'nome', 'cpf', 'endereco', 'email_institucional',
+];
 
-// 1. Listagem com paginação parametrizada
+const SELECT_ALUNO = `
+  SELECT a.*, t.nome AS turma, r.nome AS responsavel
+    FROM alunos a
+    JOIN turmas       t ON t.id_turma       = a.id_turma
+    JOIN responsaveis r ON r.id_responsavel = a.id_responsavel`;
+
 export async function listar({ limite, offset }) {
-  const limiteNum = Number.parseInt(limite, 10);
-  const offsetNum = Number.parseInt(offset, 10);
-
-  const [linhas] = await pool.query(
-    'SELECT * FROM alunos ORDER BY id_aluno LIMIT ? OFFSET ?',
-    [limiteNum, offsetNum]
-  );
-
+  // LIMIT/OFFSET com "?" exigem query() em vez de execute() no mysql2
+  const [linhas] = await pool.query(`${SELECT_ALUNO} ORDER BY a.nome LIMIT ? OFFSET ?`, [limite, offset]);
   const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM alunos');
-
-  return {
-    alunos: linhas.map(hidratarAluno),
-    total: Number(total)
-  };
+  return { alunos: linhas, total };
 }
 
-// 2. Busca por ID
-export async function buscarPorId(id) {
-  const [linhas] = await pool.query('SELECT * FROM aluno WHERE id_aluno = ?', [id]);
-  if (linhas.length === 0) return null;
-  return hidratarAluno(linhas[0]);
+export async function buscarPorId(id, db = pool) {
+  const [linhas] = await db.execute(`${SELECT_ALUNO} WHERE a.id_aluno = ?`, [id]);
+  return linhas[0] ?? null;
 }
 
-// 3. Inserção
-export async function criar(aluno) {
-  const sql = 'INSERT INTO alunos (matricula, nome, cpf, endereco, email_institucional) VALUES (?, ?, ?, ?)';
-  const valores = [aluno.matricula, aluno.nome, aluno.cpf, aluno.endereco, aluno.email_institucional];
-  const [resultado] = await pool.query(sql, valores);
-  return { ...aluno, id: resultado.insertId, imagem_url: null };
+export async function criar(aluno, db = pool) {
+  const [resultado] = await db.execute(
+    `INSERT INTO alunos (id_usuario, id_turma, id_responsavel, matricula, nome, cpf, endereco, email_institucional)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [aluno.id_usuario, aluno.id_turma, aluno.id_responsavel, aluno.matricula,
+     aluno.nome, aluno.cpf, aluno.endereco ?? null, aluno.email_institucional]
+  );
+  return resultado.insertId;
 }
 
-// 4. Atualização completa (PUT)
-export async function atualizar(id, aluno) {
-  const sql = 'UPDATE alunos SET matricula = ?, nome = ?, cpf = ?, endereco = ?, email_institucional = ? WHERE id_aluno = ?';
-  const valores = [aluno.matricula, aluno.nome, aluno.cpf, aluno.endereco, aluno.email_institucional, id];
-  const [resultado] = await pool.query(sql, valores);
-  return resultado.affectedRows > 0;
+// Atualiza só os campos enviados (montarSet ignora o resto).
+export async function atualizar(id, campos, db = pool) {
+  const sql = montarSet(campos, COLUNAS_EDITAVEIS);
+  if (!sql) return;
+  await db.execute(`UPDATE alunos SET ${sql.set} WHERE id_aluno = ?`, [...sql.valores, id]);
 }
 
-// 5. Atualizar URL da imagem (PATCH)
-// export async function atualizarImagem(id, imagemUrl) {
-//   const sql = 'UPDATE alunos SET imagem_url = ? WHERE id = ?';
-//   const [resultado] = await pool.query(sql, [imagemUrl, id]);
-//   return resultado.affectedRows > 0;
-// }
-
-// 6. Remoção (DELETE)
-export async function excluir(id) {
-  const [resultado] = await pool.query('DELETE FROM alunos WHERE id_aluno = ?', [id]);
-  return resultado.affectedRows > 0;
+export async function excluir(id, db = pool) {
+  await db.execute('DELETE FROM alunos WHERE id_aluno = ?', [id]);
 }
