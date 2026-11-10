@@ -185,6 +185,19 @@ CREATE TABLE avisos (
   CONSTRAINT fk_aviso_turma FOREIGN KEY (id_turma) REFERENCES turmas (id_turma)
 ) ENGINE=InnoDB;
 
+CREATE TABLE administradores (
+  id_admin    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_usuario  INT UNSIGNED NOT NULL,
+  nome        VARCHAR(120) NOT NULL,
+  cpf         CHAR(14)     NOT NULL,
+  email       VARCHAR(120) NOT NULL,
+  telefone    VARCHAR(20)  NULL,
+  PRIMARY KEY (id_admin),
+  UNIQUE KEY uq_admin_cpf (cpf),
+  UNIQUE KEY uq_admin_usuario (id_usuario),
+  CONSTRAINT fk_admin_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
+) ENGINE=InnoDB;
+
 -- =====================================================================
 -- 2) DADOS DE TESTE
 -- =====================================================================
@@ -302,6 +315,10 @@ INSERT INTO alunos (id_aluno, id_usuario, id_turma, id_responsavel, matricula, n
 (18, 29, 1, 18, '20263A018', 'Rodrigo Azevedo Farias', '100.000.018-18', 'Rua das Palmeiras, 15 - Vila Nova',    'rodrigo.farias@aluno.escola.edu.br'),
 (19, 30, 1, 19, '20263A019', 'Sofia Machado Vieira',   '100.000.019-19', 'Rua Sete de Setembro, 540 - Centro',   'sofia.vieira@aluno.escola.edu.br'),
 (20, 31, 1, 20, '20263A020', 'Thiago Cunha Borges',    '100.000.020-20', 'Av. Paulista, 880 - Bela Vista',       'thiago.borges@aluno.escola.edu.br');
+
+-- liga ao usuário 32 (secretaria) que já existe nos dados de teste
+INSERT INTO administradores (id_usuario, nome, cpf, email)
+VALUES (32, 'Secretaria', '400.000.000-01', 'secretaria@escola.edu.br');
 
 -- ---- turma x disciplina x professor (3A) ----------------------------
 -- ids 1..11 seguem a mesma ordem das disciplinas/professores
