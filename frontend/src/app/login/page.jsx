@@ -36,9 +36,16 @@ export default function LoginPage() {
 
     setEntrando(true);
     try {
-      const { usuario: logado } = await login({ login: usuario.trim(), senha, perfil, lembrar });
+      const respostaSessao = await login({ login: usuario.trim(), senha, perfil, lembrar });
+      console.log('✅ CONEXÃO COM BACKEND FUNCIONOU!');
+      console.log('Dados recebidos do backend:', respostaSessao);
+
+      const logado = respostaSessao.usuario;
       router.push(perfis[logado.perfil].inicio);
     } catch (erro) {
+
+      console.error('❌ ERRO AO CONECTAR:', erro.message);
+
       setErros({ geral: erro.message });
       setEntrando(false);
     }
