@@ -66,10 +66,6 @@ export default function Header({ perfil }) {
         </nav>
 
         <div className="header-direita">
-          <button className="botao-icone" aria-label={`Notificações: ${usuario.avisos}`}>
-            <Image src="/img/sino.svg" alt="" width={22} height={22} />
-            <span className="contador">{usuario.avisos}</span>
-          </button>
 
           <div className="usuario" ref={usuarioRef}>
             <button
@@ -90,9 +86,7 @@ export default function Header({ perfil }) {
                   <strong>{usuario.nomeCompleto}</strong>
                   <small>{usuario.detalheCompleto}</small>
                 </div>
-                {usuario.opcoes.map((opcao) => (
-                  <a key={opcao} href="#">{opcao}</a>
-                ))}
+               
                 <Link href="/login" className="sair" onClick={sair}>Sair</Link>
               </div>
             )}
