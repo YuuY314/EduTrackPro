@@ -98,6 +98,15 @@
   font-weight: 700;
 }
 
+.login-aviso {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--atencao-fundo);
+  color: var(--atencao-texto);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .login-perfil {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

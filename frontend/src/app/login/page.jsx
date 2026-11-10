@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
@@ -23,6 +23,15 @@ export default function LoginPage() {
   const [lembrar, setLembrar] = useState(false);
   const [erros, setErros] = useState({});
   const [entrando, setEntrando] = useState(false);
+
+  // O porteiro (AreaProtegida) manda para /login?motivo=expirou quando o token vence.
+  // Lê o "?motivo=" da URL só no navegador (no servidor não existe window).
+  const motivo = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get('motivo'),
+    () => null,
+  );
+  const aviso = motivo === 'expirou' ? 'Sua sessão expirou. Faça login novamente.' : '';
 
   async function entrar(evento) {
     evento.preventDefault();
@@ -115,6 +124,7 @@ export default function LoginPage() {
             <a href="#">Esqueci minha senha</a>
           </div>
 
+          {aviso && !erros.geral && <span className="login-aviso" role="status">{aviso}</span>}
           {erros.geral && <span className="login-erro" role="alert">{erros.geral}</span>}
 
           <button className="botao login-botao" type="submit" disabled={entrando}>
