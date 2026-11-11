@@ -12,12 +12,21 @@
 import { pool } from '../config/database.js';
 
 const SELECT_USUARIO = `
-  SELECT u.id_usuario, u.email, u.senha_hash, u.perfil,
-         a.id_aluno, p.id_professor,
-         COALESCE(a.nome, p.nome, 'Secretaria') AS nome
+    SELECT  u.id_usuario, 
+            u.email, 
+            u.senha_hash, 
+            u.perfil,
+            a.id_aluno, 
+            p.id_professor,
+            adm.id_admin,
+            COALESCE(a.nome, p.nome, adm.nome, 'Usuário') AS nome,
+            t.nome AS turma,
+            t.periodo AS turno
     FROM usuarios u
     LEFT JOIN alunos      a ON a.id_usuario = u.id_usuario
-    LEFT JOIN professores p ON p.id_usuario = u.id_usuario`;
+    LEFT JOIN turmas     t ON t.id_turma = a.id_turma
+    LEFT JOIN professores p ON p.id_usuario = u.id_usuario
+    LEFT JOIN administradores adm ON adm.id_usuario = u.id_usuario`;
 
 // Login aceita e-mail OU RA (matrícula do aluno).
 export async function buscarParaLogin(login) {

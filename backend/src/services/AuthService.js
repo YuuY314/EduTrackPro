@@ -27,9 +27,14 @@ const HASH_FALSO = await gerarHash('senha-que-ninguem-usa');
 function dadosPublicos(usuario) {
   return {
     id_usuario: usuario.id_usuario,
-    nome: usuario.nome,
+    id_aluno: usuario.id_aluno ?? null,
+    id_professor: usuario.id_professor ?? null,
+    id_admin: usuario.id_admin ?? null,
+    nome: usuario.nome || usuario.email.split('@')[0],
     email: usuario.email,
     perfil: usuario.perfil,
+    turma: usuario.turma || usuario.serie || null,
+    turno: usuario.turno || usuario.periodo || null,
   };
 }
 
