@@ -21,6 +21,8 @@ import { frequenciaRouter } from './routes/FrequenciaRoutes.js';
 import { horarioAulaRouter } from './routes/HorarioAulaRoutes.js';
 import { notaRouter } from './routes/NotaRoutes.js';
 import { professorRouter } from './routes/ProfessorRoutes.js';
+import { responsavelRouter } from './routes/ResponsavelRoutes.js';
+import { tarefaRouter } from './routes/TarefaRoutes.js';
 import { turma_disciplina_professorRouter } from './routes/TurmaDisciplinaProfessorRoutes.js';
 import { turmaRouter } from './routes/TurmaRoutes.js';
 
@@ -47,7 +49,9 @@ app.use('/api/disciplina', disciplinaRouter);
 app.use('/api/frequencia', frequenciaRouter);
 app.use('/api/horario_aula', horarioAulaRouter);
 app.use('/api/nota', notaRouter);
-app.use('/api/professores', professorRouter);
+app.use('/api/professor', professorRouter);
+app.use('/api/responsavel', responsavelRouter);
+app.use('/api/tarefa', tarefaRouter);
 app.use('/api/turma_disciplina_professor', turma_disciplina_professorRouter);
 app.use('/api/turma', turmaRouter);
 
