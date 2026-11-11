@@ -25,6 +25,8 @@ import { responsavelRouter } from './routes/ResponsavelRoutes.js';
 import { tarefaRouter } from './routes/TarefaRoutes.js';
 import { turma_disciplina_professorRouter } from './routes/TurmaDisciplinaProfessorRoutes.js';
 import { turmaRouter } from './routes/TurmaRoutes.js';
+import { viewBoletimRouter } from './routes/ViewBoletimRoutes.js';
+import { viewFaltasAlunoRouter } from './routes/ViewFaltasAlunoRoutes.js';
 
 export const app = express();
 
@@ -54,6 +56,9 @@ app.use('/api/responsavel', responsavelRouter);
 app.use('/api/tarefa', tarefaRouter);
 app.use('/api/turma_disciplina_professor', turma_disciplina_professorRouter);
 app.use('/api/turma', turmaRouter);
+
+app.use('/api/boletim', viewBoletimRouter);
+app.use('/api/faltas_aluno', viewFaltasAlunoRouter);
 
 // 3. Nada casou -> 404; algo deu erro -> errorHandler
 app.use(notFound);
