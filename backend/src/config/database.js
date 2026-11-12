@@ -1,17 +1,34 @@
-import mysql from "mysql2/promise";
+// =====================================================================
+// config/database.js - UM pool de conexões para a aplicação inteira
+//
+// Todos os models importam este mesmo "pool". Antes cada model chamava
+// criarPool() e o servidor abria 3 pools (30 conexões) sem precisar.
+// =====================================================================
+
+import mysql from 'mysql2/promise';
+
+import { ambiente } from './ambiente.js';
 
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+  ...ambiente.db,
+  connectionLimit: 10,      // até 10 conexões simultâneas
+  waitForConnections: true, // se as 10 estiverem ocupadas, a requisição espera na fila
+  queueLimit: 0,            // fila sem limite (ok em desenvolvimento; em produção use 30-50)
 });
 
-export async function checkDatabaseConnection() {
-  const [rows] = await pool.query("SELECT 1 AS ok");
-  return rows[0]?.ok === 1;
+// Executa várias queries como um bloco só: ou tudo grava, ou nada grava.
+// Usado ao criar um aluno/professor (precisa criar o usuário junto).
+export async function emTransacao(funcao) {
+  const conexao = await pool.getConnection();
+  try {
+    await conexao.beginTransaction();
+    const resultado = await funcao(conexao);
+    await conexao.commit();
+    return resultado;
+  } catch (erro) {
+    await conexao.rollback();
+    throw erro;
+  } finally {
+    conexao.release();
+  }
 }

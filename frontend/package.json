@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "edutrackpro",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,9 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "@fontsource/nunito-sans": "5.3.0",
+    "@fontsource/sora": "5.3.0",
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "overrides": {
     "postcss": "8.5.10"

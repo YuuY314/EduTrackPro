@@ -1,0 +1,13 @@
+import TituloPagina from '@/src/components/TituloPagina';
+import Chamada from './Chamada';
+
+export const metadata = { title: 'Chamada · EduTrackPro' };
+
+export default function ChamadaPage() {
+  return (
+    <>
+      <TituloPagina titulo="Chamada" voltarPara="/professor" voltarNome="Início" />
+      <Chamada />
+    </>
+  );
+}
