@@ -118,8 +118,8 @@ export default function Header({ perfil }) {
                   <strong>{nomeCompleto}</strong>
                   <small>{detalhe}</small>
                 </div>
-               
-                <Link href="/login" className="sair" onClick={sair}>Sair</Link>
+                
+                 <Link href="/login" className="sair" onClick={sair}>Sair</Link>
               </div>
             )}
           </div>
