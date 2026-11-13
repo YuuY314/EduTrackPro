@@ -1,5 +1,5 @@
 import express from 'express';
-import * as AvaliacaoController from '../controllers/AvaliacaoController.js';
+import * as AvaliacaoController from '../controller/AvaliacaoController.js';
 // import { uploadImagem } from '../middlewares/UploadMiddleware.js';
 
 // Middlewares de autenticação (serão ativados na Sessão 2)

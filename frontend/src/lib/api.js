@@ -28,6 +28,16 @@ export async function api(caminho, { metodo = 'GET', corpo } = {}) {
   return dados;
 }
 
+export async function loginGoogle({ credential, perfil, lembrar = false }) {
+  sair();
+  const sessao = await api('/auth/google', {
+    metodo: 'POST',
+    corpo: { credential, perfil },
+  });
+  (lembrar ? localStorage : sessionStorage).setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+  return sessao;
+}
+
 export async function login({ login, senha, perfil, lembrar }) {
   // Apaga a sessão anterior ANTES de entrar. Assim o login não manda um token
   // velho e não sobra uma sessão antiga no localStorage ("Lembrar de mim")

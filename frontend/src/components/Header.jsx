@@ -5,22 +5,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
-import { lerSessao, sair } from '@/src/lib/api';
+import { sair } from '@/src/lib/api';
 
 export default function Header({ perfil }) {
-  const [usuarioSessao, setUsuarioSessao] = useState(null);
+  const usuario = perfis[perfil];
   const caminho = usePathname();
 
   const [menuAberto, setMenuAberto] = useState(false);
   const [usuarioAberto, setUsuarioAberto] = useState(false);
   const usuarioRef = useRef(null);
-
-  useEffect(() => {
-    const sessao = lerSessao();
-    if (sessao?.usuario) {
-      setUsuarioSessao(sessao.usuario);
-    }
-  }, []);
 
   useEffect(() => {
     setMenuAberto(false);
@@ -37,33 +30,8 @@ export default function Header({ perfil }) {
     return () => document.removeEventListener('click', clicouFora);
   }, []);
 
-  const perfilAtivo = usuarioSessao?.perfil || perfil || 'aluno';
-  const dadosMock = perfis[perfilAtivo] || perfis.aluno;
-
-  const nomeCompleto = usuarioSessao?.nome || dadosMock.nomeCompleto || 'Usuário';
-  const primeiroNome = nomeCompleto.split(' ')[0];
-
-  const iniciais = nomeCompleto
-    .split(' ')
-    .filter(Boolean)
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
-
-  let detalhe = dadosMock.detalhe;
-
-  if (perfilAtivo === 'aluno') {
-    if (usuarioSessao?.turma) {
-      const turno = usuarioSessao.turno ? ` · ${usuarioSessao.turno}` : '';
-      detalhe = `${usuarioSessao.turma}${turno}`;
-    } else {
-      detalhe = 'Sem turma';
-    }
-  }
-
   function estaAtivo(href) {
-    if (href === dadosMock.inicio) return caminho === href;
+    if (href === usuario.inicio) return caminho === href;
     return caminho.startsWith(href);
   }
 
@@ -80,13 +48,13 @@ export default function Header({ perfil }) {
           <Image src="/img/menu.svg" alt="" width={22} height={22} />
         </button>
 
-        <Link className="logo" href={dadosMock.inicio}>
+        <Link className="logo" href={usuario.inicio}>
           <Image src="/img/logo.svg" alt="" width={36} height={36} />
           EduTrackPro
         </Link>
 
         <nav className="nav">
-          {dadosMock.menu.map((item) => (
+          {usuario.menu.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -98,6 +66,10 @@ export default function Header({ perfil }) {
         </nav>
 
         <div className="header-direita">
+          <button className="botao-icone" aria-label={`Notificações: ${usuario.avisos}`}>
+            <Image src="/img/sino.svg" alt="" width={22} height={22} />
+            <span className="contador">{usuario.avisos}</span>
+          </button>
 
           <div className="usuario" ref={usuarioRef}>
             <button
@@ -105,21 +77,19 @@ export default function Header({ perfil }) {
               aria-expanded={usuarioAberto}
               onClick={() => setUsuarioAberto(!usuarioAberto)}
             >
-              <span className="avatar">{iniciais}</span>
+              <span className="avatar">{usuario.iniciais}</span>
               <span>
-                <strong>{primeiroNome}</strong>
-                <small>{detalhe}</small>
+                <strong>{usuario.nome}</strong>
+                <small>{usuario.detalhe}</small>
               </span>
             </button>
 
             {usuarioAberto && (
               <div className="usuario-menu">
                 <div className="usuario-menu-topo">
-                  <strong>{nomeCompleto}</strong>
-                  <small>{detalhe}</small>
+                  <strong>{usuario.nomeCompleto}</strong>
+                  <small>{usuario.detalheCompleto}</small>
                 </div>
-                
-                 <Link href="/login" className="sair" onClick={sair}>Sair</Link>
               </div>
             )}
           </div>

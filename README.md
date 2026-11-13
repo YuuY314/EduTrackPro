@@ -227,3 +227,24 @@ Em deploy com dominio/reverse proxy, `NEXT_PUBLIC_API_URL` deve apontar para a U
 - Nao versionar `node_modules`, `.next` ou arquivos de build.
 - Manter o backend em JavaScript.
 - Instalar Tailwind ou Bootstrap apenas se o projeto precisar.
+
+
+## Login com Google
+
+O login Google usa Google Identity Services no frontend e validação do ID Token no backend. Após validar a identidade, o backend emite o JWT próprio do EduTrackPro, mantendo o fluxo atual de autenticação.
+
+1. Crie um OAuth Client ID do tipo **Web application** no [Google Cloud Console](https://console.cloud.google.com/).
+2. Cadastre as origens JavaScript autorizadas: `http://localhost:3000` (desenvolvimento) e o domínio do frontend em produção.
+3. Configure o mesmo Client ID nas variáveis `GOOGLE_CLIENT_ID` (backend) e `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend). No Docker Compose, use `GOOGLE_CLIENT_ID` no `.env` da raiz.
+4. Instale as dependências atualizadas em cada pasta:
+
+   ```bash
+   cd backend && npm install
+   cd ../frontend && npm install
+   ```
+
+5. Reinicie os dois serviços. Em Docker, reconstrua as imagens para que a variável `NEXT_PUBLIC_GOOGLE_CLIENT_ID` seja incorporada no build do Next.js.
+
+Por segurança, o login Google só permite entrar com um e-mail já cadastrado pela escola e exige que o perfil selecionado corresponda ao perfil da conta. Não há criação automática de usuários.
+
+O backend valida a assinatura, a audiência e o e-mail verificado do ID Token do Google. O token do Google não é usado como token da API: o backend emite o JWT próprio do EduTrackPro.

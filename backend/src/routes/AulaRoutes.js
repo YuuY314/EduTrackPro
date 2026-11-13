@@ -1,5 +1,5 @@
 import express from 'express';
-import * as AulaController from '../controllers/AulaController.js';
+import * as AulaController from '../controller/AulaController.js';
 // import { uploadImagem } from '../middlewares/UploadMiddleware.js';
 
 // Middlewares de autenticação (serão ativados na Sessão 2)
