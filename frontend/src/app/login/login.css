@@ -173,6 +173,12 @@
   font-size: 0.85rem;
 }
 
+.login-google {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
 .login-opcoes {
   display: flex;
   flex-wrap: wrap;

@@ -37,7 +37,10 @@ services:
       DB_PORT: ${DB_PORT:-3306}
       DB_USER: ${DB_USER:-app_user}
       DB_PASSWORD: ${DB_PASSWORD:-app_password}
-      DB_NAME: ${DB_NAME:-app_db}
+      DB_NAME: ${DB_NAME:-edutrackpro}
+      JWT_SECRET: ${JWT_SECRET:-troque_por_uma_string_longa_e_aleatoria}
+      JWT_EXPIRES: ${JWT_EXPIRES:-8h}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       DB_CHARSET: utf8mb4
     expose:
       - "${BACKEND_PORT:-8080}"
@@ -47,6 +50,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     depends_on:
       - backend
@@ -55,6 +59,7 @@ services:
       LANG: C.UTF-8
       PORT: ${FRONTEND_PORT:-3000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     expose:
       - "${FRONTEND_PORT:-3000}"
 
