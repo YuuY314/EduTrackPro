@@ -19,6 +19,8 @@ import { professorRouter } from './routes/ProfessorRoutes.js';
 import { turma_disciplina_professorRouter } from './routes/TurmaDisciplinaProfessorRoutes.js';
 import { turmaRouter } from './routes/TurmaRoutes.js';
 
+import { gmailAPIRouter } from './routes/GmailAPIRoutes.js';
+
 export const app = express();
 
 // 1. Defesas de borda
@@ -40,6 +42,11 @@ app.use('/api/disciplina', disciplinaRouter);
 app.use('/api/professores', professorRouter);
 app.use('/api/turma_disciplina_professor', turma_disciplina_professorRouter);
 app.use('/api/turma', turmaRouter);
+
+app.use('/api/boletim', viewBoletimRouter);
+app.use('/api/faltas_aluno', viewFaltasAlunoRouter);
+
+app.use('/api/email', gmailAPIRouter);
 
 // 3. Nada casou -> 404; algo deu erro -> errorHandler
 app.use(notFound);
