@@ -28,7 +28,6 @@ import { turmaRouter } from './routes/TurmaRoutes.js';
 import { viewBoletimRouter } from './routes/ViewBoletimRoutes.js';
 import { viewFaltasAlunoRouter } from './routes/ViewFaltasAlunoRoutes.js';
 
-import { resendAPIRouter } from './routes/ResendAPIRoutes.js';
 import { gmailAPIRouter } from './routes/GmailAPIRoutes.js';
 
 export const app = express();
@@ -63,7 +62,6 @@ app.use('/api/turma', turmaRouter);
 app.use('/api/boletim', viewBoletimRouter);
 app.use('/api/faltas_aluno', viewFaltasAlunoRouter);
 
-// app.use('/api/email', resendAPIRouter);
 app.use('/api/email', gmailAPIRouter);
 
 // 3. Nada casou -> 404; algo deu erro -> errorHandler
