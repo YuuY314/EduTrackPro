@@ -12,8 +12,8 @@ export const viewFaltasAlunoRouter = Router();
 
 viewFaltasAlunoRouter.use(autenticar);
 
-const equipe = exigirPerfil('admin', 'professor', 'aluno');
+const equipe = exigirPerfil('admin', 'professor');
 
-viewFaltasAlunoRouter.get('/me', exigirPerfil('aluno'), ViewFaltasAlunoController.meu);
+viewFaltasAlunoRouter.get('/meu', exigirPerfil('aluno'), ViewFaltasAlunoController.meu);
 viewFaltasAlunoRouter.get('/aluno/:id', equipe, ViewFaltasAlunoController.buscarPorAluno);
 viewFaltasAlunoRouter.get('/', equipe, ViewFaltasAlunoController.listar);

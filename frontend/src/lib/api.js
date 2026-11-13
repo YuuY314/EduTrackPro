@@ -49,6 +49,10 @@ export function lerSessao() {
   }
 }
 
+export async function buscarMeuBoletim() {
+  return await api('/boletim/meu');
+}
+
 export function sair() {
   localStorage.removeItem(CHAVE_SESSAO);
   sessionStorage.removeItem(CHAVE_SESSAO);

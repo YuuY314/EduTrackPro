@@ -32,6 +32,5 @@ export async function listar({ limite, offset }) {
 // Todas as linhas de UM aluno
 export async function buscarPorAluno(id_aluno) {
   const [linhas] = await pool.query('SELECT * FROM vw_boletim WHERE id_aluno = ? ORDER BY disciplina, bimestre', [id_aluno]);
-  if (linhas.length === 0) return null;
-  return hidratarViewBoletim(linhas[0]);
+  return linhas.map(hidratarViewBoletim);
 }
