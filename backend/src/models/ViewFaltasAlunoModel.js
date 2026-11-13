@@ -39,3 +39,51 @@ export async function buscarPorAluno(id_aluno) {
   if (linhas.length === 0) return null;
   return hidratarViewFaltasAluno(linhas[0]);
 }
+
+// Resumo agrupado por componente/disciplina para montar a tabela do aluno
+export async function buscarPorComponente(id_aluno) {
+  const [linhas] = await pool.query(
+    `SELECT 
+       d.nome AS componente,
+       COUNT(f.id) AS total_aulas,
+       SUM(CASE WHEN f.presente = 0 THEN 1 ELSE 0 END) AS faltas,
+       ROUND((SUM(CASE WHEN f.presente = 1 THEN 1 ELSE 0 END) / COUNT(f.id)) * 100, 1) AS presenca
+     FROM frequencias f
+     INNER JOIN aulas a ON a.id_aula = f.id_aula
+     INNER JOIN turma_disciplina_professor tdp ON tdp.id = a.id_tdp
+     INNER JOIN disciplinas d ON d.id_disciplina = tdp.id_disciplina
+     WHERE f.id_aluno = ?
+     GROUP BY d.id_disciplina, d.nome
+     ORDER BY d.nome`,
+    [id_aluno]
+  );
+
+  return linhas.map((l) => ({
+    componente: l.componente,
+    total_aulas: Number(l.total_aulas),
+    faltas: Number(l.faltas),
+    presenca: Number(l.presenca),
+  }));
+}
+
+// Ultimas dias com falta para o card, buscando os dias que o aluno teve pelo menos uma falta
+export async function buscarDiasComFalta(id_aluno) {
+  const [linhas] = await pool.query(
+    `SELECT 
+       DATE_FORMAT(a.data, '%Y-%m-%d') AS data,
+       COUNT(f.id) AS qtd_aulas,
+       MAX(f.justificativa) AS justificativa
+     FROM frequencias f
+     INNER JOIN aulas a ON a.id_aula = f.id_aula
+     WHERE f.id_aluno = ? AND f.presente = 0
+     GROUP BY a.data
+     ORDER BY a.data DESC`,
+    [id_aluno]
+  );
+
+  return linhas.map((l) => ({
+    data: l.data,
+    qtd_aulas: Number(l.qtd_aulas),
+    justificativa: l.justificativa || null,
+  }));
+}

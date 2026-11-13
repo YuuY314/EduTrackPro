@@ -18,3 +18,7 @@ export async function buscarPorAluno(req, res) {
 export async function meu(req, res) {
   res.json(await ViewFaltasAlunoService.buscarPorAluno(req.usuario.id_aluno));
 }
+
+export async function meuDetalhado(req, res) {
+  res.json(await ViewFaltasAlunoService.buscarDetalhadoPorAluno(req.usuario.id_aluno));
+}

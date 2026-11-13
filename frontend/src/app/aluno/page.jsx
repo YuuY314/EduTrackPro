@@ -1,18 +1,51 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import CartaoNumero from '@/src/components/CartaoNumero';
 import Agenda from '@/src/components/Agenda';
-import { agenda } from '@/src/lib/dados';
-
-export const metadata = { title: 'Início · EduTrackPro' };
+import LoadingTips from '@/src/components/LoadingTips';
+import { buscarDashboardAluno } from '@/src/lib/api';
 
 export default function InicioAluno() {
+  const [dados, setDados] = useState(null);
+  const [erro, setErro] = useState(null);
+
+  useEffect(() => {
+    document.title = 'Início · EduTrackPro';
+    let ativo = true;
+
+    async function carregar() {
+      try {
+        const resultado = await buscarDashboardAluno();
+        if (ativo) setDados(resultado);
+      } catch (e) {
+        if (ativo) setErro(e);
+      }
+    }
+
+    carregar();
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  if (erro) throw erro;
+
+  if (!dados) {
+    return (
+      <div className="inicio-aluno">
+        <LoadingTips texto="Carregando seu painel..." />
+      </div>
+    );
+  }
   return (
     <div className="inicio-aluno">
-      <CartaoNumero numero="3" texto="Pendências" />
-      <CartaoNumero numero="133" texto="Mensagens não lidas" href="#" />
+      <CartaoNumero numero={String(dados.pendencias)} texto="Pendências" />
+      <CartaoNumero numero={String(dados.mensagensNaoLidas)} texto="Mensagens não lidas" href="#" />
 
       <div className="cartao cartao-conteudo agenda">
         <h3>Agenda</h3>
-        <Agenda eventos={agenda} />
+        <Agenda eventos={dados.eventos} />
       </div>
 
       <CartaoNumero

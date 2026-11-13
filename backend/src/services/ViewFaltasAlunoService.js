@@ -31,3 +31,20 @@ export async function buscarPorAluno(idRecebido) {
     percentual_presenca: null,
   };
 }
+
+//verifica se o aluno existe e se ele tem alguma chamada registrada caso não tenha retorna zero, coverte o número para inteiro e depois execulta as duas consultas ao mesmo tempo deixando a API mais rápida fazendo apenas uma requisição HTTP
+export async function buscarDetalhadoPorAluno(idRecebido) {
+  const resumo = await buscarPorAluno(idRecebido);
+  const id = paraId(idRecebido, 'id_aluno');
+
+  const [porComponente, diasComFalta] = await Promise.all([
+    ViewFaltasAlunoModel.buscarPorComponente(id),
+    ViewFaltasAlunoModel.buscarDiasComFalta(id),
+  ]);
+
+  return {
+    resumo,
+    porComponente,
+    diasComFalta,
+  };
+}

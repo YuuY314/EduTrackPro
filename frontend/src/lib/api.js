@@ -78,3 +78,42 @@ export function msParaExpirar(token) {
     return 0; // token ilegível: tratamos como vencido
   }
 }
+
+// Faz a requisição para a rota da API que busca o resumo e os detalhes de faltas do aluno logado
+export async function buscarMinhaPresenca() {
+  return await api('/faltas_aluno/meu/detalhado');
+}
+
+
+export async function buscarDashboardAluno() {
+  const [resumoFaltas, resTarefas, resAvisos] = await Promise.all([
+    api('/faltas_aluno/meu'),
+    api('/tarefa'),
+    api('/aviso'),
+  ]);
+
+  const listaTarefas = Array.isArray(resTarefas) ? resTarefas : (resTarefas?.dados ?? []);
+  const listaAvisos = Array.isArray(resAvisos) ? resAvisos : (resAvisos?.dados ?? []);
+
+  const totalPendencias = resTarefas?.paginacao?.total ?? listaTarefas.length;
+  const totalAvisos = resAvisos?.paginacao?.total ?? listaAvisos.length;
+
+  const eventosAvisos = listaAvisos.map((a) => ({
+    data: String(a.data_publicacao).slice(0, 10),
+    tipo: a.titulo,
+    descricao: a.texto ?? '',
+  }));
+
+  const eventosTarefas = listaTarefas.map((t) => ({
+    data: String(t.data_entrega).slice(0, 10),
+    tipo: `Entrega: ${t.titulo}`,
+    descricao: t.descricao ?? '',
+  }));
+
+  return {
+    pendencias: totalPendencias,
+    mensagensNaoLidas: totalAvisos,
+    faltas: resumoFaltas?.faltas ?? 0,
+    eventos: [...eventosAvisos, ...eventosTarefas],
+  };
+}
