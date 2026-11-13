@@ -113,7 +113,7 @@ export async function buscarDashboardAluno() {
   return {
     pendencias: totalPendencias,
     mensagensNaoLidas: totalAvisos,
-    faltas: resumoFaltas?.faltas ?? 0,
+    faltas: resumoFaltas?.resumo?.faltas ?? resumoFaltas?.faltas ?? 0,
     eventos: [...eventosAvisos, ...eventosTarefas],
   };
 }

@@ -49,7 +49,7 @@ export default function InicioAluno() {
       </div>
 
       <CartaoNumero
-        numero="2"
+        numero={String(dados.faltas)}
         texto="Faltas"
         nota="Sua presença é muito importante."
         href="/aluno/presenca"
