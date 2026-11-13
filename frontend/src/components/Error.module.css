@@ -1,0 +1,154 @@
+
+.scene {
+  position: relative;
+  width: min(300px, 80vw);
+  margin: 0 auto;
+}
+
+.halo {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  z-index: 0;
+  width: 86%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--soft);
+  transform: translate(-50%, -50%);
+  animation: pulse 2.8s ease-in-out infinite;
+}
+
+.scene svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 16px 16px var(--shadow));
+}
+
+.book {
+  transform-box: view-box;
+  transform-origin: 50px 76px;
+  animation: shake 2.8s ease-in-out infinite;
+}
+
+.pageLeft {
+  fill: var(--ink);
+}
+
+.pageRight {
+  fill: var(--blue);
+}
+
+.up {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.crash {
+  fill: none;
+  stroke: var(--alert);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: crash 2.8s ease-in infinite;
+}
+
+.dot {
+  fill: var(--alert);
+  animation: fall 2.8s infinite;
+}
+
+.spark {
+  stroke: var(--alert);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: spark 2.8s infinite;
+}
+
+.spark:nth-of-type(2) {
+  animation-delay: 0.05s;
+}
+
+.spark:nth-of-type(3) {
+  animation-delay: 0.1s;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--alert);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.retryIcon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.5s;
+}
+
+.retry:hover .retryIcon {
+  transform: rotate(-360deg);
+}
+
+.retrying .retryIcon {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.94); }
+  50% { transform: translate(-50%, -50%) scale(1.03); }
+}
+
+@keyframes shake {
+  0%, 40%, 100% { transform: rotate(0); }
+  44% { transform: rotate(-4deg); }
+  48% { transform: rotate(3deg); }
+  52% { transform: rotate(-2deg); }
+  56% { transform: rotate(0); }
+}
+
+@keyframes crash {
+  0%, 10% { stroke-dashoffset: 100; }
+  40%, 85% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes fall {
+  0%, 10% { transform: translate(0, 0); opacity: 1; animation-timing-function: ease-in; }
+  40% { transform: translate(16px, 28px); }
+  48% { transform: translate(19px, 20px); }
+  56% { transform: translate(22px, 28px); }
+  62% { transform: translate(23px, 25px); }
+  68%, 85% { transform: translate(24px, 28px); opacity: 1; }
+  100% { transform: translate(24px, 28px); opacity: 0; }
+}
+
+@keyframes spark {
+  0%, 38% { opacity: 0; }
+  41% { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crash {
+    stroke-dashoffset: 0;
+  }
+}
