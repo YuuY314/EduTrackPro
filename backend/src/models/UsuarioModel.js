@@ -42,15 +42,6 @@ export async function buscarPorId(id) {
   return linhas[0] ?? null;
 }
 
-// Login Google: só permite contas previamente cadastradas pela escola.
-export async function buscarPorEmailGoogle(email) {
-  const [linhas] = await pool.execute(
-    `${SELECT_USUARIO} WHERE LOWER(u.email) = LOWER(?) LIMIT 1`,
-    [email]
-  );
-  return linhas[0] ?? null;
-}
-
 export async function criar({ email, senha_hash, perfil }, db = pool) {
   const [resultado] = await db.execute(
     'INSERT INTO usuarios (email, senha_hash, perfil) VALUES (?, ?, ?)',
