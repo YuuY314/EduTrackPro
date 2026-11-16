@@ -5,10 +5,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
-import { sair } from '@/src/lib/api';
+import { lerSessao, sair } from '@/src/lib/api';
 
 export default function Header({ perfil }) {
-  const usuario = perfis[perfil];
+  const [usuarioSessao, setUsuarioSessao] = useState(null);
   const caminho = usePathname();
   const router = useRouter();
   const hrefSophos = `/${perfil}/sophos-ai`;
@@ -16,6 +16,13 @@ export default function Header({ perfil }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [usuarioAberto, setUsuarioAberto] = useState(false);
   const usuarioRef = useRef(null);
+
+  useEffect(() => {
+    const sessao = lerSessao();
+    if (sessao?.usuario) {
+      setUsuarioSessao(sessao.usuario);
+    }
+  }, []);
 
   useEffect(() => {
     setMenuAberto(false);
@@ -38,7 +45,7 @@ export default function Header({ perfil }) {
   }
 
   function estaAtivo(href) {
-    if (href === usuario.inicio) return caminho === href;
+    if (href === dadosMock.inicio) return caminho === href;
     return caminho.startsWith(href);
   }
 
@@ -55,13 +62,13 @@ export default function Header({ perfil }) {
           <Image src="/img/menu.svg" alt="" width={22} height={22} />
         </button>
 
-        <Link className="logo" href={usuario.inicio}>
+        <Link className="logo" href={dadosMock.inicio}>
           <Image src="/img/logo.svg" alt="" width={36} height={36} />
           EduTrackPro
         </Link>
 
         <nav className="nav">
-          {usuario.menu.map((item) => (
+          {dadosMock.menu.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -93,18 +100,18 @@ export default function Header({ perfil }) {
               aria-expanded={usuarioAberto}
               onClick={() => setUsuarioAberto(!usuarioAberto)}
             >
-              <span className="avatar">{usuario.iniciais}</span>
+              <span className="avatar">{iniciais}</span>
               <span>
-                <strong>{usuario.nome}</strong>
-                <small>{usuario.detalhe}</small>
+                <strong>{primeiroNome}</strong>
+                <small>{detalhe}</small>
               </span>
             </button>
 
             {usuarioAberto && (
               <div className="usuario-menu">
                 <div className="usuario-menu-topo">
-                  <strong>{usuario.nomeCompleto}</strong>
-                  <small>{usuario.detalheCompleto}</small>
+                  <strong>{nomeCompleto}</strong>
+                  <small>{detalhe}</small>
                 </div>
                 <button type="button" className="sair" onClick={aoSair}>
                   Sair

@@ -1,6 +1,7 @@
 import CartaoNumero from '@/src/components/CartaoNumero';
 import ListaItem from '@/src/components/ListaItem';
 import Etiqueta from '@/src/components/Etiqueta';
+import TesteEmail from '@/src/components/TesteEmail';
 
 export const metadata = { title: 'Painel · EduTrackPro' };
 
@@ -44,6 +45,8 @@ export default function Painel() {
           </ListaItem>
         </div>
       </div>
+      
+      <TesteEmail />
     </>
   );
 }

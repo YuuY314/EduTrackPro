@@ -15,8 +15,8 @@ export const viewBoletimRouter = Router();
 
 viewBoletimRouter.use(autenticar); // todas as rotas abaixo exigem token
 
-const equipe = exigirPerfil('admin', 'professor', 'aluno');
+const equipe = exigirPerfil('admin', 'professor');
 
-viewBoletimRouter.get('/me', exigirPerfil('aluno'), ViewBoletimController.meu);
+viewBoletimRouter.get('/meu', exigirPerfil('aluno'), ViewBoletimController.meu);
 viewBoletimRouter.get('/aluno/:id', equipe, ViewBoletimController.buscarPorAluno);
 viewBoletimRouter.get('/', equipe, ViewBoletimController.listar);
