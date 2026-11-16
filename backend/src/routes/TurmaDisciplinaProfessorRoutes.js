@@ -1,14 +1,18 @@
-import express from 'express';
+import {Router} from 'express';
 import * as TurmaDisciplinaProfessorController from '../controllers/TurmaDisciplinaProfessorController.js';
+import { autenticar, exigirPerfil } from '../middlewares/autenticar.js';
 // import { uploadImagem } from '../middlewares/UploadMiddleware.js';
 
 // Middlewares de autenticação (serão ativados na Sessão 2)
 // Inicialmente passam direto para não travar a Sessão 1
-let autenticar = (_req, _res, next) => next();
-let autorizarAdmin = (_req, _res, next) => next();
+export const turma_disciplina_professorRouter = Router();
 
-export const turma_disciplina_professorRouter = express.Router();
+turma_disciplina_professorRouter.use(autenticar);
 
+const leitura = exigirPerfil('admin', 'professor');
+const escrita = exigirPerfil('admin');
+
+turma_disciplina_professorRouter.get('/professor/:idProfessor', leitura, TurmaDisciplinaProfessorController.listarPorProfessor);
 turma_disciplina_professorRouter.get('/', TurmaDisciplinaProfessorController.listar);
 turma_disciplina_professorRouter.get('/:id', TurmaDisciplinaProfessorController.buscarPorId);
 turma_disciplina_professorRouter.post('/', (req, res, next) => autenticar(req, res, next), TurmaDisciplinaProfessorController.criar);

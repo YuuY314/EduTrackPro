@@ -34,6 +34,11 @@ export async function listar({ pagina = 1, limite = 10 } = {}) {
   };
 }
 
+export async function listarPorProfessor(idProfessorRecebido) {
+  const idProfessor = validarId(idProfessorRecebido);
+  return await TurmaDisciplinaProfessorModel.listarPorProfessor(idProfessor);
+}
+
 export async function buscarPorId(idRecebido) {
   const id = validarId(idRecebido);
   const turma_disciplina_professor = await TurmaDisciplinaProfessorModel.buscarPorId(id);

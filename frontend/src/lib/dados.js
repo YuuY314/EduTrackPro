@@ -23,6 +23,7 @@ export const perfis = {
       { href: '/professor/turmas', nome: 'Minhas turmas' },
       { href: '/professor/chamada', nome: 'Chamada' },
       { href: '/professor/notas', nome: 'Notas' },
+      { href: '/professor/calendario', nome: 'Calendário' },
     ],
     iniciais: 'RL',
     nome: 'Prof. Ricardo Lima',
