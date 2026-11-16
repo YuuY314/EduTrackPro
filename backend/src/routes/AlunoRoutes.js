@@ -13,7 +13,7 @@ export const alunoRouter = Router();
 
 alunoRouter.use(autenticar); // todas as rotas abaixo exigem token
 
-const leitura = exigirPerfil('admin', 'professor');
+const leitura = exigirPerfil('admin', 'professor', 'aluno');
 const escrita = exigirPerfil('admin');
 
 alunoRouter.get('/', leitura, AlunoController.listar);
