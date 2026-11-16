@@ -14,6 +14,7 @@ viewFaltasAlunoRouter.use(autenticar);
 
 const equipe = exigirPerfil('admin', 'professor');
 
+viewFaltasAlunoRouter.get('/meu/detalhado', exigirPerfil('aluno'), ViewFaltasAlunoController.meuDetalhado);
 viewFaltasAlunoRouter.get('/meu', exigirPerfil('aluno'), ViewFaltasAlunoController.meu);
 viewFaltasAlunoRouter.get('/aluno/:id', equipe, ViewFaltasAlunoController.buscarPorAluno);
 viewFaltasAlunoRouter.get('/', equipe, ViewFaltasAlunoController.listar);
