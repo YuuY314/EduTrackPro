@@ -431,6 +431,49 @@ FROM frequencias f
 JOIN alunos a ON a.id_aluno = f.id_aluno
 GROUP BY a.id_aluno, a.nome;
 
+
+-- 1. Cria o usuário do aluno (senha: 123456)
+INSERT INTO usuarios (id_usuario, email, senha_hash, perfil) VALUES
+(900000012, 'gabrieloyama14@gmail.com', '$2b$10$aSo/wxtD/KZIP7QibhqkUOfyutmrs9fhKUbcHPv1QRZDbZiEPeAuO', 'aluno');
+
+-- 2. Insere o aluno vinculado ao usuário, turma 1 e responsável 1
+INSERT INTO alunos (
+    id_aluno,
+    id_usuario,
+    id_turma,
+    id_responsavel,
+    matricula,
+    nome,
+    cpf,
+    endereco,
+    email_institucional
+) VALUES (
+    900000001,
+    900000012,
+    1,
+    1,
+    '20269A900',
+    'Gabriel Oyama',
+    '900.000.001-90',
+    'Endereço de teste',
+    'gabrieloyama14@gmail.com'
+);
+
+-- 3. Popula as frequências para todas as aulas existentes
+INSERT INTO frequencias (id_aula, id_aluno, presente, justificativa)
+SELECT au.id_aula,
+       900000001,
+       (MOD(900000001 * 3 + au.id_aula, 11) <> 0),
+       NULL
+FROM aulas au;
+
+-- 4. Popula as notas para todas as avaliações existentes
+INSERT INTO notas (id_avaliacao, id_aluno, valor)
+SELECT av.id_avaliacao,
+       900000001,
+       ROUND(5 + MOD(900000001 * 7 + av.id_avaliacao * 3, 50) / 10, 1)
+FROM avaliacoes av;
+
 -- =====================================================================
 -- 4) CONSULTAS DE EXEMPLO
 -- =====================================================================

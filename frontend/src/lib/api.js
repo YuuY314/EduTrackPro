@@ -2,6 +2,7 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const CHAVE_SESSAO = 'edutrackpro:sessao';
+export const CHAVE_CONVERSA_SOPHOS = 'edutrackpro:sophos-ai';
 
 // fetch que já manda o token e transforma { erro } da API em exceção.
 export async function api(caminho, { metodo = 'GET', corpo } = {}) {
@@ -26,6 +27,12 @@ export async function api(caminho, { metodo = 'GET', corpo } = {}) {
   const dados = await resposta.json().catch(() => ({}));
   if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível falar com o servidor.');
   return dados;
+}
+
+// SophosAI (Gemini via backend). `historico` no formato do Gemini:
+// [{ role: 'user' | 'model', parts: [{ text }] }]. Devolve { resposta }.
+export function conversarComSophosAI({ mensagem, historico = [] }) {
+  return api('/sophos-ai/chat', { metodo: 'POST', corpo: { mensagem, historico } });
 }
 
 export async function loginGoogle({ credential, perfil, lembrar = false }) {
@@ -62,6 +69,7 @@ export function lerSessao() {
 export function sair() {
   localStorage.removeItem(CHAVE_SESSAO);
   sessionStorage.removeItem(CHAVE_SESSAO);
+  sessionStorage.removeItem(CHAVE_CONVERSA_SOPHOS); // a conversa com a IA não passa para o próximo login
 }
 
 // Limpa a sessão e volta para o login com o aviso "sua sessão expirou".
