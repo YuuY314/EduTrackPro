@@ -10,10 +10,12 @@
 // o aluno ou professor (ver AlunoService/ProfessorService).
 // =====================================================================
 
+import { OAuth2Client } from 'google-auth-library';
 import * as UsuarioModel from '../models/UsuarioModel.js';
 import { AppError } from '../utils/AppError.js';
 import { gerarHash, senhaConfere } from '../utils/senha.js';
 import { gerarToken } from '../utils/token.js';
+import { ambiente } from '../config/ambiente.js';
 
 const PERFIS_VALIDOS = ['aluno', 'professor', 'admin'];
 
