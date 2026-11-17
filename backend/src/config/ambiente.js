@@ -36,6 +36,7 @@ export const ambiente = {
   },
 
   jwtSegredo: process.env.JWT_SECRET,
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   jwtExpira: process.env.JWT_EXPIRES || '8h',          // login normal
   jwtExpiraLembrar: process.env.JWT_EXPIRES_LEMBRAR || '30d', // "Lembrar de mim"
 };

@@ -1,5 +1,5 @@
 import express from 'express';
-import * as TurmaDisciplinaProfessorController from '../controller/TurmaDisciplinaProfessorController.js';
+import * as TurmaDisciplinaProfessorController from '../controllers/TurmaDisciplinaProfessorController.js';
 // import { uploadImagem } from '../middlewares/UploadMiddleware.js';
 
 // Middlewares de autenticação (serão ativados na Sessão 2)

@@ -1009,3 +1009,37 @@ td small {
   background: var(--ruim-texto);
   color: #fff;
 }
+
+/* Formulário de e-mail */
+
+.campo textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 10px 12px;
+  resize: vertical;
+  background: var(--cartao);
+  color: var(--texto);
+  border: 1.5px solid var(--borda);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.campo textarea:focus {
+  border-color: var(--azul-coruja);
+  outline: none;
+}
+
+.campo input {
+  color: var(--texto);
+}
+
+.botao:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mensagem-erro {
+  color: var(--ruim-texto);
+  font-weight: 700;
+  font-size: 0.88rem;
+}

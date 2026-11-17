@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
-import { login } from '@/src/lib/api';
+import { login, loginGoogle } from '@/src/lib/api';
 import './login.css';
 
 const opcoesPerfil = [
@@ -23,6 +24,36 @@ export default function LoginPage() {
   const [lembrar, setLembrar] = useState(false);
   const [erros, setErros] = useState({});
   const [entrando, setEntrando] = useState(false);
+
+  // O porteiro (AreaProtegida) manda para /login?motivo=expirou quando o token vence.
+  // Lê o "?motivo=" da URL só no navegador (no servidor não existe window).
+  const motivo = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get('motivo'),
+    () => null,
+  );
+  const aviso = motivo === 'expirou' ? 'Sua sessão expirou. Faça login novamente.' : '';
+
+  async function entrarComGoogle(credentialResponse) {
+    if (!credentialResponse?.credential) {
+      setErros({ geral: 'O Google não retornou uma credencial válida.' });
+      return;
+    }
+
+    setEntrando(true);
+    setErros({});
+    try {
+      const { usuario: logado } = await loginGoogle({
+        credential: credentialResponse.credential,
+        perfil,
+        lembrar,
+      });
+      router.push(perfis[logado.perfil].inicio);
+    } catch (erro) {
+      setErros({ geral: erro.message });
+      setEntrando(false);
+    }
+  }
 
   async function entrar(evento) {
     evento.preventDefault();
@@ -108,6 +139,26 @@ export default function LoginPage() {
             {erros.senha && <span className="login-erro">{erros.senha}</span>}
           </div>
 
+          <div className="login-google">
+            {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+              <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
+                <GoogleLogin
+                  onSuccess={entrarComGoogle}
+                  onError={() => {
+                    setErros({ geral: 'Não foi possível entrar com o Google.' });
+                    setEntrando(false);
+                  }}
+                  useOneTap={false}
+                  text="signin_with"
+                  shape="rectangular"
+                  width="320"
+                />
+              </GoogleOAuthProvider>
+            ) : (
+              <p className="login-dica">Login com Google indisponível: configure NEXT_PUBLIC_GOOGLE_CLIENT_ID.</p>
+            )}
+          </div>
+
           <div className="login-opcoes">
             <label>
               <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} /> Lembrar de mim
@@ -115,6 +166,7 @@ export default function LoginPage() {
             <a href="#">Esqueci minha senha</a>
           </div>
 
+          {aviso && !erros.geral && <span className="login-aviso" role="status">{aviso}</span>}
           {erros.geral && <span className="login-erro" role="alert">{erros.geral}</span>}
 
           <button className="botao login-botao" type="submit" disabled={entrando}>

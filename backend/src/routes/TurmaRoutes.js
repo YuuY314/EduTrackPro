@@ -1,5 +1,5 @@
 import express from 'express';
-import * as TurmaController from '../controller/TurmaController.js';
+import * as TurmaController from '../controllers/TurmaController.js';
 // import { uploadImagem } from '../middlewares/UploadMiddleware.js';
 
 // Middlewares de autenticação (serão ativados na Sessão 2)
