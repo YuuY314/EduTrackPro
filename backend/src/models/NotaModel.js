@@ -61,3 +61,83 @@ export async function excluir(id) {
   const [resultado] = await pool.query('DELETE FROM notas WHERE id = ?', [id]);
   return resultado.affectedRows > 0;
 }
+
+export async function buscarBoletim(id_tdp, bimestre) {
+  const [avaliacoes] = await pool.query(
+    'SELECT id_avaliacao, titulo, bimestre, peso FROM avaliacoes WHERE id_tdp = ? AND bimestre = ? ORDER BY id_avaliacao',
+    [id_tdp, bimestre]
+  );
+
+  if (avaliacoes.length === 0) {
+    return { avaliacoes: [], notas: [] };
+  }
+
+  const idsAval = avaliacoes.map((a) => a.id_avaliacao);
+  const [notas] = await pool.query(
+    'SELECT id, id_avaliacao, id_aluno, valor FROM notas WHERE id_avaliacao IN (?)',
+    [idsAval]
+  );
+
+  return {
+    avaliacoes,
+    notas: notas.map(hidratarNota)
+  };
+}
+
+export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registros }) {
+  const conexao = await pool.getConnection();
+  try {
+    await conexao.beginTransaction();
+
+    // 1. Garante que existam as 3 avaliações (Prova 1, Prova 2, Trabalho) para o id_tdp e bimestre
+    const [existentes] = await conexao.query(
+      'SELECT id_avaliacao, titulo FROM avaliacoes WHERE id_tdp = ? AND bimestre = ?',
+      [id_tdp, bimestre]
+    );
+
+    const mapaAval = new Map(existentes.map((a) => [a.titulo, a.id_avaliacao]));
+
+    for (const titulo of titulos) {
+      if (!mapaAval.has(titulo)) {
+        const [resAval] = await conexao.query(
+          'INSERT INTO avaliacoes (id_tdp, titulo, bimestre, peso) VALUES (?, ?, ?, 1.00)',
+          [id_tdp, titulo, bimestre]
+        );
+        mapaAval.set(titulo, resAval.insertId);
+      }
+    }
+
+    // 2. Insere, atualiza ou remove (quando deixada em branco) cada nota do aluno
+    let totalSalvas = 0;
+    for (const reg of registros) {
+      for (let i = 0; i < titulos.length; i++) {
+        const id_avaliacao = mapaAval.get(titulos[i]);
+        const valorRaw = reg.notas[i];
+
+        if (valorRaw === '' || valorRaw === null || valorRaw === undefined) {
+          await conexao.query(
+            'DELETE FROM notas WHERE id_avaliacao = ? AND id_aluno = ?',
+            [id_avaliacao, reg.id_aluno]
+          );
+        } else {
+          const valorNum = Number(valorRaw);
+          await conexao.query(
+            `INSERT INTO notas (id_avaliacao, id_aluno, valor)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE valor = VALUES(valor)`,
+            [id_avaliacao, reg.id_aluno, valorNum]
+          );
+          totalSalvas++;
+        }
+      }
+    }
+
+    await conexao.commit();
+    return { total_notas: totalSalvas };
+  } catch (erro) {
+    await conexao.rollback();
+    throw erro;
+  } finally {
+    conexao.release();
+  }
+}

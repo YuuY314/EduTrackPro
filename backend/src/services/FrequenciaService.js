@@ -80,7 +80,7 @@ export async function buscarChamada(id_tdp, data) {
   if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     throw new TypeError('Data deve estar no formato YYYY-MM-DD.');
   }
-  return await FrequenciaModel.buscarChamadaPorTdpEData(idTdpNum, data);
+  return await FrequenciaModel.buscarChamada(idTdpNum, data);
 }
 
 export async function salvarChamada(dados) {

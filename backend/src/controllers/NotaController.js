@@ -74,3 +74,21 @@ export async function excluir(req, res, next) {
     return responderErro(erro, res, next);
   }
 }
+
+export async function buscarBoletim(req, res, next) {
+  try {
+    const dados = await NotaService.buscarBoletim(req.query.id_tdp, req.query.bimestre);
+    return res.status(200).json({ sucesso: true, dados });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
+
+export async function salvarBoletim(req, res, next) {
+  try {
+    const resultado = await NotaService.salvarBoletim(req.body);
+    return res.status(200).json({ sucesso: true, dados: resultado });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}

@@ -74,3 +74,44 @@ export async function excluir(idRecebido) {
     throw new Error(`Nota ${id} não encontrado.`);
   }
 }
+
+export async function buscarBoletim(id_tdp, bimestre) {
+  const idTdpNum = validarId(id_tdp);
+  const bimNum = Number(bimestre);
+  if (!Number.isInteger(bimNum) || bimNum < 1 || bimNum > 4) {
+    throw new TypeError('Bimestre deve ser um inteiro entre 1 e 4.');
+  }
+  return await NotaModel.buscarBoletim(idTdpNum, bimNum);
+}
+
+export async function salvarBoletim(dados) {
+  const id_tdp = validarId(dados?.id_tdp);
+  const bimestre = Number(dados?.bimestre);
+  const titulos = dados?.titulos;
+  const registros = dados?.registros;
+
+  if (!Number.isInteger(bimestre) || bimestre < 1 || bimestre > 4) {
+    throw new TypeError('Bimestre deve ser um inteiro entre 1 e 4.');
+  }
+  if (!Array.isArray(titulos) || titulos.length === 0) {
+    throw new TypeError('Informe os títulos das avaliações.');
+  }
+  if (!Array.isArray(registros) || registros.length === 0) {
+    throw new TypeError('Informe a lista de alunos.');
+  }
+
+  for (const reg of registros) {
+    validarId(reg.id_aluno);
+    for (const n of reg.notas) {
+      if (n !== '' && n !== null && n !== undefined) {
+        const val = Number(n);
+        if (!Number.isFinite(val) || val < 0 || val > 10) {
+          throw new TypeError('Todas as notas devem estar entre 0 e 10.');
+        }
+      }
+    }
+  }
+
+  return await NotaModel.salvarBoletimCompleto({ id_tdp, bimestre, titulos, registros });
+}
+

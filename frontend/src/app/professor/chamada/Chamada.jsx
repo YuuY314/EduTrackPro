@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { alunosDaTurma, turmas } from '@/src/lib/api';
+import { api,  lerSessao } from '@/src/lib/api';
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -45,9 +45,10 @@ export default function Chamada() {
 
         if (lista.length > 0) {
           const encontrada = turmaUrl
-            ? lista.find((t) => String(t.id_turma) === String(turmaUrl) || String(t.id_tdp) === String(turmaUrl))
+            ? lista.find((t) => String(t.id_turma) === String(turmaUrl) || String(t.id_tdp || t.id) === String(turmaUrl))
             : null;
-          setIdTdpSelecionado(String((encontrada || lista[0]).id_tdp));
+            const escolhida = encontrada || lista[0];
+          setIdTdpSelecionado(String(escolhida.id_tdp || escolhida.id));
         } else {
           setCarregando(false);
         }
@@ -59,17 +60,52 @@ export default function Chamada() {
   }, [turmaUrl]);
 
   useEffect(() => {
+    if (!idTdpSelecionado) return;
+
+    api(`/frequencia/horarios/${idTdpSelecionado}`)
+      .then((res) => {
+        setHorariosTdp(res?.dados || []);
+      })
+      .catch(() => {
+        setHorariosTdp([]);
+      });
+  }, [idTdpSelecionado]);
+
+  const opcoesAula = useMemo(() => {
+    if (horariosTdp.length === 0) return [];
+    const diaDaData = obterDiaSemana(dataAula);
+    const doDia = horariosTdp.filter((h) => h.dia_semana === diaDaData);
+    const listaBase = doDia.length > 0 ? doDia : horariosTdp;
+
+    return listaBase.map((h, index) => ({
+      id: h.id,
+      rotulo: `${index + 1}ª aula · ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`,
+    }));
+  }, [horariosTdp, dataAula]);
+
+  useEffect(() => {
+    if (opcoesAula.length > 0) {
+      const aindaExiste = opcoesAula.some((o) => o.rotulo === aulaSelecionada);
+      if (!aindaExiste) {
+        setAulaSelecionada(opcoesAula[0].rotulo);
+      }
+    } else {
+      setAulaSelecionada('');
+    }
+  }, [opcoesAula, aulaSelecionada]);
+
+  useEffect(() => {
     if (!idTdpSelecionado || !dataAula) return;
 
-    const turmaAtual = turmasProf.find((t) => String(t.id_tdp) === String(idTdpSelecionado));
+    const turmaAtual = turmasProf.find((t) => String(t.id_tdp || t.id) === String(idTdpSelecionado));
     if (!turmaAtual) return;
 
     setCarregando(true);
     setMensagem('');
 
     Promise.all([
-      api(`/alunos?id_turma=${turmaAtual.id_turma}&limite=100`),
-      api(`/frequencias/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}`).catch(() => ({ dados: null })),
+      api(`/aluno?id_turma=${turmaAtual.id_turma}&limite=100`),
+      api(`/frequencia/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}`).catch(() => ({ dados: null })),
     ])
       .then(([resAlunos, resChamada]) => {
         const listaAlunos = resAlunos?.dados || [];
@@ -77,13 +113,14 @@ export default function Chamada() {
 
         const chamadaExistente = resChamada?.dados;
         if (chamadaExistente?.aula) {
-          setConteudoAula(chamadaExistente.aula.conteudo || '');
+          if (chamadaExistente.aula.conteudo) {
+            setAulaSelecionada(chamadaExistente.aula.conteudo);
+          }
           const idsFaltosos = (chamadaExistente.frequencias || [])
             .filter((f) => Number(f.presente) === 0)
             .map((f) => f.id_aluno);
           setFaltasIds(idsFaltosos);
         } else {
-          setConteudoAula('');
           setFaltasIds([]);
         }
       })
@@ -97,8 +134,8 @@ export default function Chamada() {
 
   function alternar(idAluno) {
     setMensagem('');
-    if (faltas.includes(idAluno)) {
-      setFaltasIds(faltas.filter((id) => id !== idAluno));
+    if (faltasIds.includes(idAluno)) {
+      setFaltasIds(faltasIds.filter((id) => id !== idAluno));
     } else {
       setFaltasIds([...faltasIds, idAluno]);
     }
@@ -117,12 +154,12 @@ export default function Chamada() {
         justificativa: null,
       }));
 
-      await api('/frequencias/chamada', {
-        method: 'POST',
-        body: {
+      await api('/frequencia/chamada', {
+        metodo: 'POST',
+        corpo: {
           id_tdp: Number(idTdpSelecionado),
           data: dataAula,
-          conteudo: conteudoAula.trim() || null,
+          conteudo: aulaSelecionada || null,
           registros,
         },
       });
@@ -149,9 +186,16 @@ export default function Chamada() {
             onChange={(e) => setIdTdpSelecionado(e.target.value)}
             disabled={turmasProf.length === 0}
           >
-            {turmasProf.map((t) => (
-              <option key={t.id_tdp} value={t.id_tdp}>{t.turma} · {t.turno}</option>
-            ))}
+            {turmasProf.map((t) => {
+              const idOpcao = t.id_tdp || t.id;
+              const nomeTurma = t.turma || t.nome_turma || t.nome || 'Turma';
+              const turnoTurma = t.turno || t.periodo || '';
+              return (
+                <option key={idOpcao} value={idOpcao}>
+                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
         <div className="campo">
@@ -185,34 +229,45 @@ export default function Chamada() {
               </tr>
             </thead>
             <tbody>
-              {alunosDaTurma.map((aluno, i) => {
-                const faltou = faltas.includes(aluno);
-                return (
-                  <tr key={aluno}>
-                    <td>{String(i + 1).padStart(2, '0')}</td>
-                    <td>{aluno}</td>
-                    <td className="centro">
-                      <button
-                        className={`botao-presenca ${faltou ? 'falta' : ''}`}
-                        onClick={() => alternar(aluno)}
-                      >
-                        {faltou ? 'Falta' : 'Presente'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {carregando ? (
+                <tr>
+                  <td colSpan="3">Carregando alunos...</td>
+                </tr>
+              ) : alunos.length === 0 ? (
+                <tr>
+                  <td colSpan="3">Nenhum aluno encontrado nesta turma.</td>
+                </tr>
+              ) : (
+                alunos.map((aluno, i) => {
+                  const faltou = faltasIds.includes(aluno.id_aluno);
+                  return (
+                    <tr key={aluno.id_aluno}>
+                      <td>{String(i + 1).padStart(2, '0')}</td>
+                      <td>{aluno.nome}</td>
+                      <td className="centro">
+                        <button
+                          type="button"
+                          className={`botao-presenca ${faltou ? 'falta' : ''}`}
+                          onClick={() => alternar(aluno.id_aluno)}
+                        >
+                          {faltou ? 'Falta' : 'Presente'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="cartao-rodape">
           <span>
-            <strong>{presentes}</strong> presentes · <strong>{faltas.length}</strong>{' '}
-            {faltas.length === 1 ? 'falta' : 'faltas'}
+          <strong>{presentes}</strong> presentes · <strong>{faltasIds.length}</strong>{' '}
+            {faltasIds.length === 1 ? 'falta' : 'faltas'}
           </span>
           <span className="mensagem" role="status">{mensagem}</span>
-          <button className="botao" onClick={salvar}>Salvar chamada</button>
+          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || alunos.length === 0}>{salvando ? 'Salvando...' : 'Salvar chamada'}</button>
         </div>
       </div>
     </>
