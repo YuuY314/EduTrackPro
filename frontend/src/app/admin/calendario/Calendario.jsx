@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { agenda } from '@/src/lib/dados';
 import CalendarioGrade from './CalendarioGrade';
+import Selecao from '@/src/components/Selecao';
+import SeletorData from '@/src/components/SeletorData';
 
 const tipos = ['Letivo', 'Dia não letivo', 'Reunião de pais/responsáveis', 'Avaliação', 'Feriado'];
 const DIAS_CURTOS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -74,13 +76,17 @@ export default function Calendario() {
       <form className="cartao formulario" onSubmit={salvar}>
         <div className="campo">
           <label htmlFor="data-evento">Data</label>
-          <input id="data-evento" type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+          <SeletorData id="data-evento" compacto obrigatorio value={data} onChange={(e) => setData(e.target.value)} />
         </div>
         <div className="campo">
           <label htmlFor="tipo-evento">Tipo</label>
-          <select id="tipo-evento" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            {tipos.map((t) => <option key={t}>{t}</option>)}
-          </select>
+          <Selecao
+            id="tipo-evento"
+            compacto
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            opcoes={tipos.map((t) => ({ value: t, label: t }))}
+          />
         </div>
         <div className="campo">
           <label htmlFor="descricao-evento">Descrição</label>

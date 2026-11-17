@@ -1,11 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import Selecao from '@/src/components/Selecao';
+import SeletorData from '@/src/components/SeletorData';
 import { alunosDaTurma, turmas } from '@/src/lib/dados';
+
+const aulas = [
+  { value: '1', label: '1ª aula', detalhe: '19:00' },
+  { value: '2', label: '2ª aula', detalhe: '19:50' },
+];
 
 export default function Chamada() {
   const [faltas, setFaltas] = useState(['Eduarda Lima']);
   const [mensagem, setMensagem] = useState('');
+  const [turma, setTurma] = useState(turmas[0].id);
+  const [aula, setAula] = useState(aulas[0].value);
+  const [data, setData] = useState('2026-10-26');
+
 
   function alternar(aluno) {
     setMensagem('');
@@ -28,22 +39,21 @@ export default function Chamada() {
       <div className="filtros">
         <div className="campo largo">
           <label htmlFor="turma">Turma</label>
-          <select id="turma">
-            {turmas.map((t) => (
-              <option key={t.id} value={t.id}>{t.nome} · {t.turno}</option>
-            ))}
-          </select>
+          <Selecao
+            id="turma"
+            compacto
+            value={turma}
+            onChange={(e) => setTurma(e.target.value)}
+            opcoes={turmas.map((t) => ({ value: t.id, label: t.nome, detalhe: t.turno }))}
+          />
         </div>
         <div className="campo">
           <label htmlFor="data">Data</label>
-          <input id="data" type="date" defaultValue="2026-10-26" />
+          <SeletorData id="data" compacto obrigatorio value={data} onChange={(e) => setData(e.target.value)} />
         </div>
         <div className="campo">
           <label htmlFor="aula">Aula</label>
-          <select id="aula">
-            <option>1ª aula · 19:00</option>
-            <option>2ª aula · 19:50</option>
-          </select>
+          <Selecao id="aula" compacto value={aula} onChange={(e) => setAula(e.target.value)} opcoes={aulas} />
         </div>
       </div>
 

@@ -43,6 +43,7 @@ export const perfis = {
       { href: '/admin/professores', nome: 'Professores' },
       { href: '/admin/turmas', nome: 'Turmas' },
       { href: '/admin/calendario', nome: 'Calendário' },
+      { href: '/admin/cadastro', nome: 'Cadastro' },
     ],
     iniciais: 'SM',
     nome: 'Sandra Moreira',

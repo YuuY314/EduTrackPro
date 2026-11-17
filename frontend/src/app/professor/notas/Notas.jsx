@@ -2,16 +2,24 @@
 
 import { useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
+import Selecao from '@/src/components/Selecao';
 import { notasDaTurma, turmas } from '@/src/lib/dados';
 import { corDaNota, media } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
+
+const bimestres = [
+  { value: '3', label: '3º Bimestre' },
+  { value: '4', label: '4º Bimestre' },
+];
 
 export default function Notas() {
   const [linhas, setLinhas] = useState(
     notasDaTurma.map((l) => ({ ...l, notas: l.notas.map((n) => n ?? '') }))
   );
   const [mensagem, setMensagem] = useState('');
+  const [turma, setTurma] = useState(turmas[0].id);
+  const [bimestre, setBimestre] = useState(bimestres[0].value);
 
   function mudarNota(indiceAluno, indiceNota, valor) {
     const novas = [...linhas];
@@ -31,18 +39,23 @@ export default function Notas() {
       <div className="filtros">
         <div className="campo largo">
           <label htmlFor="turma">Turma</label>
-          <select id="turma">
-            {turmas.map((t) => (
-              <option key={t.id} value={t.id}>{t.nome} · {t.turno}</option>
-            ))}
-          </select>
+          <Selecao
+            id="turma"
+            compacto
+            value={turma}
+            onChange={(e) => setTurma(e.target.value)}
+            opcoes={turmas.map((t) => ({ value: t.id, label: t.nome, detalhe: t.turno }))}
+          />
         </div>
         <div className="campo">
           <label htmlFor="bimestre">Bimestre</label>
-          <select id="bimestre">
-            <option>3º Bimestre</option>
-            <option>4º Bimestre</option>
-          </select>
+          <Selecao
+            id="bimestre"
+            compacto
+            value={bimestre}
+            onChange={(e) => setBimestre(e.target.value)}
+            opcoes={bimestres}
+          />
         </div>
       </div>
 
