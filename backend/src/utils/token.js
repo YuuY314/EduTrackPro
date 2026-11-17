@@ -33,9 +33,51 @@ export function gerarToken(usuario, { lembrar = false } = {}) {
 // Devolve o payload se o token for válido; senão lança 401.
 export function verificarToken(token) {
   try {
-    return jwt.verify(token, ambiente.jwtSegredo, { algorithms: ['HS256'] });
+    const payload = jwt.verify(token, ambiente.jwtSegredo, {
+      algorithms: ['HS256'],
+    });
+
+    if (payload.purpose === 'password_reset' || !payload.perfil) {
+      throw new Error('Token não é de autenticação.');
+    }
+
+    return payload;
   } catch {
-    // adulterado, malformado ou vencido: para o cliente é tudo "inválido"
-    throw new AppError('Sessão inválida ou expirada. Faça login novamente.', 401);
+    throw new AppError(
+      'Sessão inválida ou expirada. Faça login novamente.',
+      401
+    );
+  }
+}
+
+// Gera um JWT exclusivo para recuperação de senha.
+export function gerarTokenRecuperacao(idUsuario) {
+  return jwt.sign(
+    {
+      sub: idUsuario,
+      purpose: 'password_reset',
+    },
+    ambiente.jwtSegredo,
+    {
+      expiresIn: '30m',
+      algorithm: 'HS256',
+    }
+  );
+}
+
+// Verifica se o JWT é válido e se sua finalidade é recuperação.
+export function verificarTokenRecuperacao(token) {
+  try {
+    const payload = jwt.verify(token, ambiente.jwtSegredo, {
+      algorithms: ['HS256'],
+    });
+
+    if (payload.purpose !== 'password_reset' || !payload.sub) {
+      throw new Error('Finalidade inválida.');
+    }
+
+    return payload;
+  } catch {
+    throw new AppError('Link de recuperação inválido ou expirado.', 400);
   }
 }

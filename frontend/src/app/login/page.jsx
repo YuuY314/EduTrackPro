@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
 import { login, loginGoogle } from '@/src/lib/api';
 import './login.css';
+import Link from 'next/link';
 
 const opcoesPerfil = [
   { valor: 'aluno', nome: 'Aluno' },
@@ -163,7 +164,7 @@ export default function LoginPage() {
             <label>
               <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} /> Lembrar de mim
             </label>
-            <a href="#">Esqueci minha senha</a>
+            <Link href="/recuperar-senha">Esqueci minha senha</Link>
           </div>
 
           {aviso && !erros.geral && <span className="login-aviso" role="status">{aviso}</span>}

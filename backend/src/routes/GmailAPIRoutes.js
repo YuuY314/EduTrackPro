@@ -11,6 +11,11 @@ gmailAPIRouter.post(
     GmailAPIController.enviar
 );
 
+gmailAPIRouter.post(
+    '/recuperar-senha',
+    GmailAPIController.enviarRecuperacao
+);
+
 export function configurarSegurancaEmails(middlewareAuth) {
     if (middlewareAuth) {
         autenticar = middlewareAuth;
