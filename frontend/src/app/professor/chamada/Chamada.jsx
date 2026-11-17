@@ -1,48 +1,175 @@
 'use client';
 
 import { useState } from 'react';
-import { alunosDaTurma, turmas } from '@/src/lib/dados';
+import { useSearchParams } from 'next/navigation';
+import { alunosDaTurma, turmas } from '@/src/lib/api';
+
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+function obterDiaSemana(dataStr) {
+  if (!dataStr) return null;
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  const dataObj = new Date(ano, mes - 1, dia);
+  return DIAS_SEMANA[dataObj.getDay()];
+}
 
 export default function Chamada() {
-  const [faltas, setFaltas] = useState(['Eduarda Lima']);
+  const SearchParams = useSearchParams();
+  const turmaUrl = SearchParams.get('turma');
+
+  const [turmasProf, setTurmasProf] = useState([]);
+  const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
+  const [dataAula, setDataAula] = useState(() => new Date().toISOString().split('T')[0]);
+  const [horariosTdp, setHorariosTdp] = useState([]);
+  const [aulaSelecionada, setAulaSelecionada] = useState('');
+
+  const [alunos, setAlunos] = useState([]);
+  const [faltasIds, setFaltasIds] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
 
-  function alternar(aluno) {
+  useEffect(() => {
+    const sessao = lerSessao();
+    const idProfessor = sessao?.usuario?.id_professor;
+
+    if (!idProfessor) {
+      setCarregando(false);
+      return;
+    }
+
+    api(`/turma_disciplina_professor/professor/${idProfessor}`)
+      .then((res) => {
+        const lista = res?.dados || [];
+        setTurmasProf(lista);
+
+        if (lista.length > 0) {
+          const encontrada = turmaUrl
+            ? lista.find((t) => String(t.id_turma) === String(turmaUrl) || String(t.id_tdp) === String(turmaUrl))
+            : null;
+          setIdTdpSelecionado(String((encontrada || lista[0]).id_tdp));
+        } else {
+          setCarregando(false);
+        }
+      })
+      .catch(() => {
+        setMensagem('Erro ao carregar turmas do professor.');
+        setCarregando(false);
+      });
+  }, [turmaUrl]);
+
+  useEffect(() => {
+    if (!idTdpSelecionado || !dataAula) return;
+
+    const turmaAtual = turmasProf.find((t) => String(t.id_tdp) === String(idTdpSelecionado));
+    if (!turmaAtual) return;
+
+    setCarregando(true);
     setMensagem('');
-    if (faltas.includes(aluno)) {
-      setFaltas(faltas.filter((nome) => nome !== aluno));
+
+    Promise.all([
+      api(`/alunos?id_turma=${turmaAtual.id_turma}&limite=100`),
+      api(`/frequencias/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}`).catch(() => ({ dados: null })),
+    ])
+      .then(([resAlunos, resChamada]) => {
+        const listaAlunos = resAlunos?.dados || [];
+        setAlunos(listaAlunos);
+
+        const chamadaExistente = resChamada?.dados;
+        if (chamadaExistente?.aula) {
+          setConteudoAula(chamadaExistente.aula.conteudo || '');
+          const idsFaltosos = (chamadaExistente.frequencias || [])
+            .filter((f) => Number(f.presente) === 0)
+            .map((f) => f.id_aluno);
+          setFaltasIds(idsFaltosos);
+        } else {
+          setConteudoAula('');
+          setFaltasIds([]);
+        }
+      })
+      .catch(() => {
+        setMensagem('Erro ao carregar lista de alunos.');
+      })
+      .finally(() => {
+        setCarregando(false);
+      });
+  }, [idTdpSelecionado, dataAula, turmasProf]);
+
+  function alternar(idAluno) {
+    setMensagem('');
+    if (faltas.includes(idAluno)) {
+      setFaltasIds(faltas.filter((id) => id !== idAluno));
     } else {
-      setFaltas([...faltas, aluno]);
+      setFaltasIds([...faltasIds, idAluno]);
     }
   }
 
-  function salvar() {
-    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    setMensagem(`Chamada salva às ${hora}`);
+  async function salvar() {
+    if (!idTdpSelecionado || alunos.length === 0) return;
+
+    setSalvando(true);
+    setMensagem('');
+
+    try {
+      const registros = alunos.map((aluno) => ({
+        id_aluno: aluno.id_aluno,
+        presente: faltasIds.includes(aluno.id_aluno) ? 0 : 1,
+        justificativa: null,
+      }));
+
+      await api('/frequencias/chamada', {
+        method: 'POST',
+        body: {
+          id_tdp: Number(idTdpSelecionado),
+          data: dataAula,
+          conteudo: conteudoAula.trim() || null,
+          registros,
+        },
+      });
+
+      const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setMensagem(`Chamada salva às ${hora}`);
+    } catch (erro) {
+      setMensagem(erro.message || 'Erro ao salvar chamada.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
-  const presentes = alunosDaTurma.length - faltas.length;
+  const presentes = alunos.length - faltasIds.length;
 
   return (
     <>
       <div className="filtros">
         <div className="campo largo">
           <label htmlFor="turma">Turma</label>
-          <select id="turma">
-            {turmas.map((t) => (
-              <option key={t.id} value={t.id}>{t.nome} · {t.turno}</option>
+          <select 
+            id="turma"
+            value={idTdpSelecionado}
+            onChange={(e) => setIdTdpSelecionado(e.target.value)}
+            disabled={turmasProf.length === 0}
+          >
+            {turmasProf.map((t) => (
+              <option key={t.id_tdp} value={t.id_tdp}>{t.turma} · {t.turno}</option>
             ))}
           </select>
         </div>
         <div className="campo">
           <label htmlFor="data">Data</label>
-          <input id="data" type="date" defaultValue="2026-10-26" />
+          <input id="data" type="date" value={dataAula} onChange={(e) => setDataAula(e.target.value)} />
         </div>
         <div className="campo">
           <label htmlFor="aula">Aula</label>
-          <select id="aula">
-            <option>1ª aula · 19:00</option>
-            <option>2ª aula · 19:50</option>
+          <select id="aula" value={aulaSelecionada} onChange={(e) => setAulaSelecionada(e.target.value)} disabled={opcoesAula.length === 0}>
+            {opcoesAula.length === 0 ? (
+              <option value="">Sem horário cadastrado</option>
+            ) : (
+              opcoesAula.map((opcao) => (
+                <option key={opcao.id} value={opcao.rotulo}>
+                  {opcao.rotulo}
+                </option>
+              ))
+            )}
           </select>
         </div>
       </div>

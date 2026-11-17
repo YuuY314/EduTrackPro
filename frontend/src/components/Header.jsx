@@ -5,10 +5,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { perfis } from '@/src/lib/dados';
-import { lerSessao, sair } from '@/src/lib/api';
+import { api, lerSessao, sair } from '@/src/lib/api';
 
 export default function Header({ perfil }) {
   const [usuarioSessao, setUsuarioSessao] = useState(null);
+  const [disciplinasProf, setDisciplinasProf] = useState('');
   const caminho = usePathname();
 
   const [menuAberto, setMenuAberto] = useState(false);
@@ -19,6 +20,16 @@ export default function Header({ perfil }) {
     const sessao = lerSessao();
     if (sessao?.usuario) {
       setUsuarioSessao(sessao.usuario);
+
+      if (sessao.usuario.perfil === 'professor' && sessao.usuario.id_professor) {
+        api(`/turma_disciplina_professor/professor/${sessao.usuario.id_professor}`)
+          .then((res) => {
+            const lista = res?.dados || [];
+            const unicas = [...new Set(lista.map((t) => t.disciplina).filter(Boolean))];
+            setDisciplinasProf(unicas.length > 0 ? unicas.join(', ') : 'Sem disciplina');
+          })
+          .catch(() => {});
+      }
     }
   }, []);
 
@@ -60,6 +71,8 @@ export default function Header({ perfil }) {
     } else {
       detalhe = 'Sem turma';
     }
+  } else if (perfilAtivo === 'professor' && disciplinasProf) {
+    detalhe = disciplinasProf;
   }
 
   function estaAtivo(href) {

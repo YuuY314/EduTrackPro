@@ -4,13 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import TituloPagina from '@/src/components/TituloPagina';
 import Etiqueta from '@/src/components/Etiqueta';
-import { apiGet, lerSessao } from '@/src/lib/api';
+import { api, lerSessao } from '@/src/lib/api';
 import { corDaNota } from '@/src/lib/utils';
 
 export default function MinhasTurmas() {
   const [turmas, setTurmas] = useState([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState('');
 
   useEffect(() => {
     document.title = 'Minhas turmas · EduTrackPro';
@@ -19,19 +17,12 @@ export default function MinhasTurmas() {
       try {
         const sessao = lerSessao();
         const idProfessor = sessao?.usuario?.id_professor;
+          if (!idProfessor) return;
 
-        if (!idProfessor) {
-          setErro('Não foi possível identificar o professor logado.');
-          setCarregando(false);
-          return;
-        }
-
-        const resposta = await apiGet(`/turma-disciplina-professor/professor/${idProfessor}`);
+        const resposta = await api(`/turma_disciplina_professor/professor/${idProfessor}`);
         setTurmas(resposta?.dados || []);
       } catch (e) {
-        setErro(e.message || 'Erro ao carregar suas turmas.');
-      } finally {
-        setCarregando(false);
+        console.error('Erro ao carregar turmas:', e);
       }
     }
 

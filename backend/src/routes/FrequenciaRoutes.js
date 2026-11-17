@@ -10,6 +10,9 @@ let autorizarAdmin = (_req, _res, next) => next();
 export const frequenciaRouter = express.Router();
 
 frequenciaRouter.get('/', FrequenciaController.listar);
+frequenciaRouter.get('/chamada', FrequenciaController.buscarChamada);
+frequenciaRouter.post('/chamada', (req, res, next) => autenticar(req, res, next), FrequenciaController.salvarChamada);
+frequenciaRouter.get('/horarios/:id_tdp', FrequenciaController.listarHorarios);
 frequenciaRouter.get('/:id', FrequenciaController.buscarPorId);
 frequenciaRouter.post('/', (req, res, next) => autenticar(req, res, next), FrequenciaController.criar);
 frequenciaRouter.put('/:id', (req, res, next) => autenticar(req, res, next), FrequenciaController.atualizar);
@@ -21,3 +24,4 @@ export function configurarSegurancaFrequencias(middlewareAuth, middlewareAdmin) 
   if (middlewareAuth) autenticar = middlewareAuth;
   if (middlewareAdmin) autorizarAdmin = middlewareAdmin;
 }
+

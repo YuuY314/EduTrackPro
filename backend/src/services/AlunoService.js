@@ -16,7 +16,10 @@ const TEXTOS = ['matricula', 'nome', 'cpf', 'email_institucional'];
 
 export async function listar(query) {
   const paginacao = lerPaginacao(query);
-  const { alunos, total } = await AlunoModel.listar(paginacao);
+  const { alunos, total } = await AlunoModel.listar({
+    ...paginacao,
+    id_turma: query.id_turma,
+  });
   return { dados: alunos, paginacao: montarPaginacao(paginacao, total) };
 }
 
