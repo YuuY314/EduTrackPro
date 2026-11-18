@@ -26,6 +26,43 @@ export async function listar({ limite, offset }) {
   };
 }
 
+export async function listarPorProfessor(idProfessor) {
+  const sql =
+    `SELECT
+      tdp.id AS id_tdp,
+      tdp.id_turma,
+      tdp.id_disciplina,
+      tdp.id_professor,
+      t.nome AS turma_nome,
+      t.periodo AS turma_periodo,
+      t.ano_letivo,
+      d.nome AS disciplina_nome,
+      (SELECT COUNT(*) FROM alunos al WHERE al.id_turma = t.id_turma) AS total_alunos,
+      (SELECT ROUND(AVG(n.valor), 1) FROM notas n INNER JOIN avaliacoes av ON av.id_avaliacao = n.id_avaliacao WHERE av.id_tdp = tdp.id) AS media_notas,
+      (SELECT ROUND(AVG(f.presente) * 100) FROM frequencias f INNER JOIN aulas au ON au.id_aula = f.id_aula WHERE au.id_tdp = tdp.id) AS percentual_presenca
+    FROM turma_disciplina_professor tdp
+    INNER JOIN turmas t ON t.id_turma = tdp.id_turma
+    INNER JOIN disciplinas d ON d.id_disciplina = tdp.id_disciplina
+    WHERE tdp.id_professor = ?
+    ORDER BY t.nome ASC, d.nome ASC`;
+
+  const [linhas] = await pool.query(sql, [idProfessor]);
+
+  return linhas.map((linha) => ({
+    id_tdp: linha.id_tdp,
+    id_turma: linha.id_turma,
+    id_disciplina: linha.id_disciplina,
+    id_professor: linha.id_professor,
+    nome: linha.turma_nome,
+    turno: linha.turma_periodo,
+    ano_letivo: linha.ano_letivo,
+    disciplina: linha.disciplina_nome,
+    alunos: Number(linha.total_alunos ?? 0),
+    media: linha.media_notas !== null ? Number(linha.media_notas) : null,
+    presenca: linha.percentual_presenca !== null ? Number(linha.percentual_presenca) : null,
+  }));
+}
+
 // 2. Busca por ID
 export async function buscarPorId(id) {
   const [linhas] = await pool.query('SELECT * FROM turma_disciplina_professor WHERE id = ?', [id]);

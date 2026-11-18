@@ -74,3 +74,28 @@ export async function excluir(idRecebido) {
     throw new Error(`Frequência ${id} não encontrado.`);
   }
 }
+
+export async function buscarChamada(id_tdp, data) {
+  const idTdpNum = validarId(id_tdp);
+  if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    throw new TypeError('Data deve estar no formato YYYY-MM-DD.');
+  }
+  return await FrequenciaModel.buscarChamada(idTdpNum, data);
+}
+
+export async function salvarChamada(dados) {
+  const id_tdp = validarId(dados?.id_tdp);
+  const { data, conteudo, registros } = dados || {};
+  if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    throw new TypeError('Data deve estar no formato YYYY-MM-DD.');
+  }
+  if (!Array.isArray(registros) || registros.length === 0) {
+    throw new TypeError('É necessário informar a lista de frequência dos alunos.');
+  }
+  return await FrequenciaModel.salvarChamadaCompleta({ id_tdp, data, conteudo, registros });
+}
+
+export async function listarHorarios(id_tdp) {
+  const idTdpNum = validarId(id_tdp);
+  return await FrequenciaModel.listarHorariosPorTdp(idTdpNum);
+}

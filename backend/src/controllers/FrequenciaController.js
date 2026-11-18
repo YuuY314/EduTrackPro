@@ -74,3 +74,31 @@ export async function excluir(req, res, next) {
     return responderErro(erro, res, next);
   }
 }
+
+export async function buscarChamada(req, res, next) {
+  try {
+    const { id_tdp, data } = req.query;
+    const resultado = await FrequenciaService.buscarChamada(id_tdp, data);
+    return res.status(200).json({ sucesso: true, dados: resultado });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
+
+export async function salvarChamada(req, res, next) {
+  try {
+    const resultado = await FrequenciaService.salvarChamada(req.body);
+    return res.status(200).json({ sucesso: true, dados: resultado });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
+
+export async function listarHorarios(req, res, next) {
+  try {
+    const horarios = await FrequenciaService.listarHorarios(req.params.id_tdp);
+    return res.status(200).json({ sucesso: true, dados: horarios });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
