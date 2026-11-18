@@ -8,18 +8,24 @@ import { corDaNota, media } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
 
+const bimestres = [
+  { value: '3', label: '3º Bimestre' },
+  { value: '4', label: '4º Bimestre' },
+];
+
 export default function Notas() {
   const searchParams = useSearchParams();
   const turmaUrl = searchParams.get('turma');
 
   const [turmasProf, setTurmasProf] = useState([]);
   const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
-  const [bimestre, setBimestre] = useState('3');
+  // const [bimestre, setBimestre] = useState('3');
 
   const [linhas, setLinhas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
+  const [bimestre, setBimestre] = useState(bimestres[0].value);
 
   useEffect(() => {
     const sessao = lerSessao();

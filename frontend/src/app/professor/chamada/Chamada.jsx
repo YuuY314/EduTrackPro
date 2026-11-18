@@ -29,6 +29,7 @@ export default function Chamada() {
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
 
+
   useEffect(() => {
     const sessao = lerSessao();
     const idProfessor = sessao?.usuario?.id_professor;
