@@ -13,3 +13,7 @@ export const authRouter = Router();
 authRouter.post('/login', AuthController.login);
 authRouter.post('/google', AuthController.loginGoogle); // pública: valida o ID Token do Google // pública: é aqui que se pega o token
 authRouter.get('/me', autenticar, AuthController.me);
+
+authRouter.post('/recuperar-senha', AuthController.solicitarRecuperacaoSenha);
+
+authRouter.post('/redefinir-senha', AuthController.redefinirSenha);
