@@ -30,6 +30,9 @@ import { viewFaltasAlunoRouter } from './routes/ViewFaltasAlunoRoutes.js';
 
 import { gmailAPIRouter } from './routes/GmailAPIRoutes.js';
 
+import sophosAiRoutes from './routes/SophosAiRoutes.js';
+
+
 export const app = express();
 
 // 1. Defesas de borda
@@ -58,6 +61,7 @@ app.use('/api/responsavel', responsavelRouter);
 app.use('/api/tarefa', tarefaRouter);
 app.use('/api/turma_disciplina_professor', turma_disciplina_professorRouter);
 app.use('/api/turma', turmaRouter);
+app.use('/api/sophos-ai', sophosAiRoutes);
 
 app.use('/api/boletim', viewBoletimRouter);
 app.use('/api/faltas_aluno', viewFaltasAlunoRouter);
