@@ -115,25 +115,37 @@ export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registr
   try {
     await conexao.beginTransaction();
 
+    const pesosPorTitulo = {
+      'Prova 1': 0.40,
+      'Prova 2': 0.30,
+      'Trabalho': 0.30,
+    };
+
     const [existentes] = await conexao.query(
       'SELECT id_avaliacao, titulo FROM avaliacoes WHERE id_tdp = ? AND bimestre = ? ORDER BY id_avaliacao',
       [id_tdp, bimestre]
     );
 
-    //verifica se já existe avaliações salvas para aquela turma e bimestre, caso não tenha cria e guarda o id gerado
+    //verifica se já existem avaliações salvas para aquela turma e bimestre (atualizando o peso), caso não tenha cria e guarda o id gerado
     const mapaAval = new Map();
     for (const a of existentes) {
       const pos = posicaoDaNota(a.titulo, titulos);
       if (pos !== -1 && !mapaAval.has(titulos[pos])) {
-        mapaAval.set(titulos[pos], a.id_avaliacao);
+        const tituloOficial = titulos[pos];
+        mapaAval.set(tituloOficial, a.id_avaliacao);
+        await conexao.query(
+          'UPDATE avaliacoes SET peso = ? WHERE id_avaliacao = ?',
+          [pesosPorTitulo[tituloOficial] ?? 1.00, a.id_avaliacao]
+        );
       }
     }
 
     for (const titulo of titulos) {
       if (!mapaAval.has(titulo)) {
+        const peso = pesosPorTitulo[titulo] ?? 1.00;
         const [resAval] = await conexao.query(
-          'INSERT INTO avaliacoes (id_tdp, titulo, bimestre, peso) VALUES (?, ?, ?, 1.00)',
-          [id_tdp, titulo, bimestre]
+          'INSERT INTO avaliacoes (id_tdp, titulo, bimestre, peso) VALUES (?, ?, ?, ?)',
+          [id_tdp, titulo, bimestre, peso]
         );
         mapaAval.set(titulo, resAval.insertId);
       }
