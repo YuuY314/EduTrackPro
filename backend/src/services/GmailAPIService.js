@@ -84,11 +84,8 @@ export async function enviarEmailRecuperacao({
 
     const urlBase = new URL(frontendUrl);
 
-    if (
-        urlBase.protocol !== 'https:' &&
-        urlBase.hostname !== 'localhost'
-    ) {
-        throw new Error('URL do frontend inválida.');
+    if (!['http:', 'https:'].includes(urlBase.protocol)) {
+        throw new Error('Protocolo da URL do frontend inválido.');
     }
 
     const link = new URL('/redefinir-senha', urlBase);
