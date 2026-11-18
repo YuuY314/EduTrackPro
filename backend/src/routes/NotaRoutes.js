@@ -10,6 +10,10 @@ let autorizarAdmin = (_req, _res, next) => next();
 export const notaRouter = express.Router();
 
 notaRouter.get('/', NotaController.listar);
+notaRouter.get('/', NotaController.listar);
+notaRouter.get('/boletim', NotaController.buscarBoletim);
+notaRouter.post('/boletim', (req, res, next) => autenticar(req, res, next), NotaController.salvarBoletim);
+notaRouter.get('/:id', NotaController.buscarPorId);
 notaRouter.get('/:id', NotaController.buscarPorId);
 notaRouter.post('/', (req, res, next) => autenticar(req, res, next), NotaController.criar);
 notaRouter.put('/:id', (req, res, next) => autenticar(req, res, next), NotaController.atualizar);

@@ -37,6 +37,8 @@ export const ambiente = {
 
   jwtSegredo: process.env.JWT_SECRET,
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
   jwtExpira: process.env.JWT_EXPIRES || '8h',          // login normal
   jwtExpiraLembrar: process.env.JWT_EXPIRES_LEMBRAR || '30d', // "Lembrar de mim"
+  geminiModelo: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
 };

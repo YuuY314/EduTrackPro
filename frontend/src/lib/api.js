@@ -2,10 +2,16 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const CHAVE_SESSAO = 'edutrackpro:sessao';
+export const CHAVE_CONVERSA_SOPHOS = 'edutrackpro:sophos-ai';
 
 // fetch que já manda o token e transforma { erro } da API em exceção.
-export async function api(caminho, { metodo = 'GET', corpo } = {}) {
-  const sessao = lerSessao();
+export async function api(caminho, {
+  metodo = 'GET',
+  corpo,
+  autenticada = true
+} = {}) {
+  const sessao = autenticada ? lerSessao() : null;
+
   const resposta = await fetch(`${API_URL}${caminho}`, {
     method: metodo,
     headers: {
@@ -15,17 +21,26 @@ export async function api(caminho, { metodo = 'GET', corpo } = {}) {
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
 
-  // Mandamos um token e o backend respondeu 401: o token venceu, foi
-  // adulterado ou a conta foi apagada. Equivale ao session_destroy() do PHP.
   if (resposta.status === 401 && sessao) {
     sessaoExpirou();
     throw new Error('Sessão expirada. Faça login novamente.');
   }
 
   if (resposta.status === 204) return null;
+
   const dados = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível falar com o servidor.');
+
+  if (!resposta.ok) {
+    throw new Error(dados.erro || 'Não foi possível falar com o servidor.');
+  }
+
   return dados;
+}
+
+// SophosAI (Gemini via backend). `historico` no formato do Gemini:
+// [{ role: 'user' | 'model', parts: [{ text }] }]. Devolve { resposta }.
+export function conversarComSophosAI({ mensagem, historico = [] }) {
+  return api('/sophos-ai/chat', { metodo: 'POST', corpo: { mensagem, historico } });
 }
 
 export async function loginGoogle({ credential, perfil, lembrar = false }) {
@@ -66,6 +81,7 @@ export async function buscarMeuBoletim() {
 export function sair() {
   localStorage.removeItem(CHAVE_SESSAO);
   sessionStorage.removeItem(CHAVE_SESSAO);
+  sessionStorage.removeItem(CHAVE_CONVERSA_SOPHOS); // a conversa com a IA não passa para o próximo login
 }
 
 // Limpa a sessão e volta para o login com o aviso "sua sessão expirou".
@@ -126,4 +142,28 @@ export async function buscarDashboardAluno() {
     faltas: resumoFaltas?.resumo?.faltas ?? resumoFaltas?.faltas ?? 0,
     eventos: [...eventosAvisos, ...eventosTarefas],
   };
+}
+
+/*
+  Solicita um link para recuperação de senha.
+  Não exige autenticação.
+*/
+export async function solicitarRecuperacaoSenha({ login }) {
+  return await api('/auth/recuperar-senha', {
+    metodo: 'POST',
+    corpo: { login },
+    autenticada: false,
+  });
+}
+
+/*
+  Define uma nova senha utilizando o token recebido por e-mail.
+  Não exige autenticação.
+*/
+export async function redefinirSenha({ token, senha }) {
+  return await api('/auth/redefinir-senha', {
+    metodo: 'POST',
+    corpo: { token, senha },
+    autenticada: false,
+  });
 }

@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
+import EditarAluno from '@/src/components/EditarAluno';
+import Selecao from '@/src/components/Selecao';
 import { alunosDaEscola, turmas } from '@/src/lib/dados';
-
-const vazio = { nome: '', turma: turmas[0].id, responsavel: '' };
 
 function Situacao({ presenca }) {
   if (presenca === null) return <Etiqueta cor="vazio">Novo</Etiqueta>;
@@ -13,72 +13,24 @@ function Situacao({ presenca }) {
   return <Etiqueta cor="bom">Regular</Etiqueta>;
 }
 
-function proximaMatricula(alunos) {
-  const numeros = alunos.map((a) => Number(a.matricula.split('.')[1]) || 0);
-  const maior = Math.max(499, ...numeros);
-  return `26.${String(maior + 1).padStart(4, '0')}`;
-}
-
 export default function Alunos() {
   const [alunos, setAlunos] = useState(alunosDaEscola);
   const [busca, setBusca] = useState('');
   const [turno, setTurno] = useState('');
-  const [formAberto, setFormAberto] = useState(false);
-  const [form, setForm] = useState(vazio);
-  const [editando, setEditando] = useState(null); // matrícula do aluno em edição
+  const [editando, setEditando] = useState(null);
 
   const visiveis = alunos.filter((a) => {
     const texto = `${a.nome} ${a.matricula}`.toLowerCase();
     return texto.includes(busca.toLowerCase()) && (turno === '' || a.turno === turno);
   });
 
-  function abrirCadastro() {
-    setEditando(null);
-    setForm(vazio);
-    setFormAberto(true);
-  }
-
-  function fecharFormulario() {
-    setEditando(null);
-    setForm(vazio);
-    setFormAberto(false);
-  }
-
-  function salvar(evento) {
-    evento.preventDefault();
-    const turma = turmas.find((t) => t.id === form.turma);
-    const dados = {
-      nome: form.nome.trim(),
-      turma: turma.nome,
-      turno: turma.turno,
-      responsavel: form.responsavel.trim(),
-    };
-
-    if (editando) {
-      setAlunos(alunos.map((a) => (a.matricula === editando ? { ...a, ...dados } : a)));
-    } else {
-      setAlunos([{ matricula: proximaMatricula(alunos), presenca: null, ...dados }, ...alunos]);
-    }
-
-    fecharFormulario();
-  }
-
-  function editar(aluno) {
-    const turma = turmas.find((t) => t.nome === aluno.turma && t.turno === aluno.turno);
-    setEditando(aluno.matricula);
-    setForm({
-      nome: aluno.nome,
-      turma: turma?.id ?? turmas[0].id,
-      responsavel: aluno.responsavel ?? '',
-    });
-    setFormAberto(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  function salvar(dados) {
+    setAlunos(alunos.map((a) => (a.matricula === editando.matricula ? { ...a, ...dados } : a)));
   }
 
   function excluir(aluno) {
     if (!window.confirm(`Excluir o aluno ${aluno.nome} (${aluno.matricula})?`)) return;
     setAlunos(alunos.filter((a) => a.matricula !== aluno.matricula));
-    if (editando === aluno.matricula) fecharFormulario();
   }
 
   return (
@@ -96,58 +48,15 @@ export default function Alunos() {
         </div>
         <div className="campo">
           <label htmlFor="turno">Turno</label>
-          <select id="turno" value={turno} onChange={(e) => setTurno(e.target.value)}>
-            <option value="">Todos</option>
-            <option>Manhã</option>
-            <option>Tarde</option>
-            <option>Noite</option>
-          </select>
+          <Selecao
+            id="turno"
+            compacto
+            value={turno}
+            onChange={(e) => setTurno(e.target.value)}
+            opcoes={['', 'Manhã', 'Tarde', 'Noite'].map((t) => ({ value: t, label: t || 'Todos' }))}
+          />
         </div>
-        <button className="botao" onClick={abrirCadastro}>+ Cadastrar aluno</button>
       </div>
-
-      {formAberto && (
-        <form className="cartao formulario" onSubmit={salvar}>
-          <div className="campo">
-            <label htmlFor="nome">Nome completo</label>
-            <input
-              id="nome"
-              required
-              autoFocus
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-            />
-          </div>
-          <div className="campo">
-            <label htmlFor="turma-aluno">Turma</label>
-            <select
-              id="turma-aluno"
-              value={form.turma}
-              onChange={(e) => setForm({ ...form, turma: e.target.value })}
-            >
-              {turmas.map((t) => (
-                <option key={t.id} value={t.id}>{t.nome} · {t.turno}</option>
-              ))}
-            </select>
-          </div>
-          <div className="campo">
-            <label htmlFor="responsavel">Responsável</label>
-            <input
-              id="responsavel"
-              value={form.responsavel}
-              onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
-            />
-          </div>
-          <div className="turma-botoes">
-            <button className="botao" type="submit">
-              {editando ? 'Salvar alterações' : 'Salvar'}
-            </button>
-            <button className="botao botao-contorno" type="button" onClick={fecharFormulario}>
-              Cancelar
-            </button>
-          </div>
-        </form>
-      )}
 
       <div className="cartao tabela-rolagem tabela-larga tabela-escura">
         <table>
@@ -174,7 +83,7 @@ export default function Alunos() {
                 <td className="centro"><Situacao presenca={a.presenca} /></td>
                 <td>
                   <div className="turma-botoes">
-                    <button className="botao botao-pequeno botao-contorno" onClick={() => editar(a)}>
+                    <button className="botao botao-pequeno botao-contorno" onClick={() => setEditando(a)}>
                       Editar
                     </button>
                     <button className="botao botao-pequeno botao-perigo" onClick={() => excluir(a)}>
@@ -194,6 +103,16 @@ export default function Alunos() {
           </tbody>
         </table>
       </div>
+
+      {editando && (
+        <EditarAluno
+          key={editando.matricula}
+          aluno={editando}
+          turmas={turmas}
+          onSalvar={salvar}
+          onFechar={() => setEditando(null)}
+        />
+      )}
     </>
   );
 }

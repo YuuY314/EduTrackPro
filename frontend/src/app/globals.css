@@ -1009,37 +1009,124 @@ td small {
   background: var(--ruim-texto);
   color: #fff;
 }
-
-/* Formulário de e-mail */
-
-.campo textarea {
-  width: 100%;
-  min-height: 180px;
-  padding: 10px 12px;
-  resize: vertical;
-  background: var(--cartao);
-  color: var(--texto);
-  border: 1.5px solid var(--borda);
-  border-radius: 10px;
-  font: inherit;
-}
-
-.campo textarea:focus {
-  border-color: var(--azul-coruja);
-  outline: none;
-}
-
-.campo input {
-  color: var(--texto);
-}
-
-.botao:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.mensagem-erro {
-  color: var(--ruim-texto);
+/* Botão da SophosAI no header (sempre visível) */
+.botao-sophos {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  margin-right: 4px;
+  border-radius: 999px;
+  background: linear-gradient(140deg, var(--azul-coruja), #7a6cf0);
+  color: #fff;
   font-weight: 700;
   font-size: 0.88rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgb(10 12 40 / 0.3);
+}
+
+.botao-sophos:hover {
+  filter: brightness(1.1);
+}
+
+.botao-sophos.ativo {
+  box-shadow: 0 0 0 2px var(--azul-claro);
+}
+
+@media (max-width: 420px) {
+  .botao-sophos span {
+    display: none;
+  }
+
+  .botao-sophos {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+/* "Sair" no menu do usuário */
+.usuario-menu button.sair {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--ruim-texto);
+}
+
+.usuario-menu button.sair:hover {
+  background: var(--ruim-fundo);
+}
+
+
+.markdown-conteudo {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.markdown-conteudo h2,
+.markdown-conteudo h3,
+.markdown-conteudo h4 {
+  margin: 20px 0 10px;
+  font-weight: 700;
+}
+
+.markdown-conteudo p {
+  margin: 10px 0;
+}
+
+.markdown-conteudo ul,
+.markdown-conteudo ol {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.markdown-conteudo li {
+  margin-bottom: 6px;
+}
+
+.markdown-conteudo hr {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.markdown-conteudo table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-conteudo th,
+.markdown-conteudo td {
+  padding: 10px;
+  border: 1px solid var(--cor-borda);
+  text-align: left;
+}
+
+.markdown-conteudo th {
+  font-weight: 700;
+}
+
+.markdown-conteudo pre {
+  overflow-x: auto;
+  padding: 14px;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.markdown-conteudo code {
+  overflow-wrap: anywhere;
+}
+
+.markdown-conteudo .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+  margin: 12px 0;
 }
