@@ -8,11 +8,27 @@ const SERIES = ['1', '2', '3'];
 const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const TURNOS = ['Manhã', 'Tarde', 'Noite'];
 
-const vazio = { serie: '', letra: '', turno: '', sala: '' };
+function extrairSerieELetra(nome = '') {
+  const limpo = String(nome).trim();
+  const match = limpo.match(/^([123])(?:ª\s*Série\s*)?([A-Z])$/i);
+  if (match) {
+    return { serie: match[1], letra: match[2].toUpperCase() };
+  }
+  return { serie: '', letra: '' };
+}
 
-export default function NovaTurma({ turmas, onSalvar, onFechar }) {
-  const [form, setForm] = useState(vazio);
+export default function NovaTurma({ turmas = [], turmaInicial = null, onSalvar, onFechar }) {
+  const editando = Boolean(turmaInicial);
+  const { serie: serieIni, letra: letraIni } = extrairSerieELetra(turmaInicial?.nome);
+
+  const [form, setForm] = useState({
+    serie: serieIni,
+    letra: letraIni,
+    turno: turmaInicial?.turno || turmaInicial?.periodo || '',
+    ano_letivo: String(turmaInicial?.ano_letivo || new Date().getFullYear()),
+  });
   const [erros, setErros] = useState({});
+  const [salvando, setSalvando] = useState(false);
   const [fechando, setFechando] = useState(false);
 
   useEffect(() => {
@@ -37,38 +53,53 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
     return (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
   }
 
-  const nome = form.serie && form.letra ? `${form.serie}ª Série ${form.letra}` : '';
+  const codigoTurma = form.serie && form.letra ? `${form.serie}${form.letra}` : '';
+  const tituloTag = form.serie && form.letra ? `${codigoTurma} · ${form.serie}ª Série ${form.letra}` : 'Nova turma';
 
   function validar() {
     const e = {};
     if (!form.serie) e.serie = 'Selecione a série';
     if (!form.letra) e.letra = 'Selecione a letra';
     if (!form.turno) e.turno = 'Selecione o turno';
-    if (!form.sala.trim()) e.sala = 'Informe a sala';
-    if (form.serie && form.letra && turmas.some((t) => t.id === `${form.serie}${form.letra}`)) {
-      e.letra = `A ${nome} já existe`;
+
+    const anoNum = Number(form.ano_letivo);
+    if (!Number.isInteger(anoNum) || anoNum < 1901 || anoNum > 2155) {
+      e.ano_letivo = 'Informe um ano letivo válido';
+    }
+
+    if (
+      codigoTurma &&
+      turmas.some(
+        (t) =>
+          String(t.nome || '').trim().toLowerCase() === codigoTurma.toLowerCase() &&
+          Number(t.id) !== Number(turmaInicial?.id)
+      )
+    ) {
+      e.letra = `A turma ${codigoTurma} já existe`;
     }
     return e;
   }
 
-  function salvar(evento) {
+  async function salvar(evento) {
     evento.preventDefault();
     const encontrados = validar();
     setErros(encontrados);
     if (Object.keys(encontrados).length) return;
 
-    const sala = form.sala.trim();
-    onSalvar({
-      id: `${form.serie}${form.letra}`,
-      nome,
-      turno: form.turno,
-      sala: /^sala/i.test(sala) ? sala : `Sala ${sala}`,
-      alunos: 0,
-      media: null,
-      presenca: null,
-      semProfessor: 0,
-    });
-    fechar();
+    try {
+      setSalvando(true);
+      await onSalvar({
+        nome: codigoTurma,
+        turno: form.turno,
+        periodo: form.turno,
+        ano_letivo: Number(form.ano_letivo),
+      });
+      fechar();
+    } catch (e) {
+      setErros({ geral: e.message || 'Não foi possível salvar a turma.' });
+    } finally {
+      setSalvando(false);
+    }
   }
 
   return (
@@ -86,8 +117,10 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
       >
         <header className={styles.topo}>
           <div>
-            <span className={styles.tag}>{nome || 'Nova turma'}</span>
-            <h2 id="titulo-nova-turma" className={styles.titulo}>Adicionar turma</h2>
+            <span className={styles.tag}>{tituloTag}</span>
+            <h2 id="titulo-nova-turma" className={styles.titulo}>
+              {editando ? 'Gerenciar turma' : 'Adicionar turma'}
+            </h2>
           </div>
           <button type="button" className={styles.fechar} onClick={fechar} aria-label="Fechar">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -98,7 +131,7 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
 
         <div className={styles.conteudo}>
           <section className={styles.secao}>
-            <Titulo numero="1" titulo="Identificação" texto="Série e letra formam o nome da turma" />
+            <Titulo numero="1" titulo="Identificação" texto="Série e letra formam o código da turma (ex.: 1A, 2B)" />
             <div className={styles.grid}>
               <Campo label="Série" erro={erros.serie}>
                 <Selecao
@@ -121,7 +154,7 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
           </section>
 
           <section className={`${styles.secao} ${styles.atraso}`}>
-            <Titulo numero="2" titulo="Funcionamento" texto="Turno e sala onde a turma tem aula" />
+            <Titulo numero="2" titulo="Funcionamento" texto="Turno e ano letivo da turma" />
             <div className={styles.grid}>
               <Campo label="Turno" erro={erros.turno}>
                 <Selecao
@@ -131,16 +164,33 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
                   opcoes={TURNOS.map((t) => ({ value: t, label: t }))}
                 />
               </Campo>
-              <Campo label="Sala" erro={erros.sala}>
-                <input value={form.sala} onChange={alterar('sala')} placeholder="Ex.: 12" maxLength={20} />
+              <Campo label="Ano letivo" erro={erros.ano_letivo}>
+                <input
+                  type="number"
+                  min={1901}
+                  max={2155}
+                  value={form.ano_letivo}
+                  onChange={alterar('ano_letivo')}
+                  placeholder="Ex.: 2026"
+                />
               </Campo>
             </div>
           </section>
+
+          {erros.geral && (
+            <p className={styles.erro} style={{ marginTop: '0.5rem' }}>
+              {erros.geral}
+            </p>
+          )}
         </div>
 
         <footer className={styles.rodape}>
-          <button type="button" className={styles.btnSecundario} onClick={fechar}>Cancelar</button>
-          <button type="submit" className={styles.btnPrimario}>Adicionar turma</button>
+          <button type="button" className={styles.btnSecundario} onClick={fechar} disabled={salvando}>
+            Cancelar
+          </button>
+          <button type="submit" className={styles.btnPrimario} disabled={salvando}>
+            {salvando ? 'Salvando...' : editando ? 'Salvar alterações' : 'Adicionar turma'}
+          </button>
         </footer>
       </form>
     </div>

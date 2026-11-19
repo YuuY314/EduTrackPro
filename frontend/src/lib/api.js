@@ -14,6 +14,7 @@ export async function api(caminho, {
 
   const resposta = await fetch(`${API_URL}${caminho}`, {
     method: metodo,
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(sessao && { Authorization: `Bearer ${sessao.token}` }),
@@ -74,6 +75,7 @@ export function lerSessao() {
   }
 }
 
+// ==================== Aluno: Notas (Boletim) ====================
 export async function buscarMeuBoletim() {
   return await api('/boletim/meu');
 }
@@ -105,12 +107,13 @@ export function msParaExpirar(token) {
   }
 }
 
+// ==================== Aluno: Frequência ====================
 // Faz a requisição para a rota da API que busca o resumo e os detalhes de faltas do aluno logado
 export async function buscarMinhaPresenca() {
   return await api('/faltas_aluno/meu/detalhado');
 }
 
-
+// ==================== Aluno: Painel Inicial ====================
 export async function buscarDashboardAluno() {
   const [resumoFaltas, resTarefas, resAvisos] = await Promise.all([
     api('/faltas_aluno/meu'),
@@ -167,6 +170,8 @@ export async function redefinirSenha({ token, senha }) {
     autenticada: false,
   });
 }
+
+// ==================== Professor: Painel Inicial ====================
 //ele vai buscar cinco rotas diferentes da API ao mesmo tempo para retornar as informações do dashboard de uma só vez
 export async function buscarDashboardProfessor() {
 
@@ -354,4 +359,434 @@ export async function buscarDashboardProfessor() {
     alunosBaixaFrequencia,
     disciplinaPrincipal,
   };
+}
+
+// ==================== Administrador: Alunos ====================
+
+//listar, cruzar as informações e formatalas para a tabelas de Alunos
+export async function listarAlunosAdmin() {
+  //disparando quatro requisições GET ao mesmo tempopara trazer todosos alunos cadastrados e suas respectivas turmas, turnos, dados cadastrais dos responsaveis e consulta as vw_faltas_alunos para obter o percentual de frequência (limit=100 para evitar cortes de página)
+  const [resAlunos, resTurmas, resFaltas, resResponsaveis] = await Promise.all([
+    api('/aluno?limite=100'),
+    api('/turma?limite=100').catch(() => ({ dados: [] })),
+    api('/faltas_aluno?limite=100').catch(() => ({ dados: [] })),
+    api('/responsavel?limite=100').catch(() => ({ dados: [] })),
+  ]);
+
+  const listaAlunos = Array.isArray(resAlunos) ? resAlunos : (resAlunos?.dados ?? []);
+  const listaTurmas = Array.isArray(resTurmas) ? resTurmas : (resTurmas?.dados ?? []);
+  const listaFaltas = Array.isArray(resFaltas) ? resFaltas : (resFaltas?.dados ?? []);
+  const listaResponsaveis = Array.isArray(resResponsaveis)
+    ? resResponsaveis
+    : (resResponsaveis?.dados ?? []);
+
+  //agrupamento de todas as informações do aluno pelo ID correspondente
+  const mapaTurmas = new Map(listaTurmas.map((t) => [Number(t.id_turma ?? t.id), t]));
+  const mapaResponsaveis = new Map(
+    listaResponsaveis.map((r) => [Number(r.id_responsavel ?? r.id), r])
+  );
+
+  // Calcula a média de presença do aluno a partir da view vw_faltas_aluno
+  const mapaFreq = new Map();
+  listaFaltas.forEach((f) => {
+    const idAluno = Number(f.id_aluno);
+    const freq = Number(f.frequencia ?? f.percentual_presenca ?? f.presenca_percentual);
+    if (!Number.isFinite(freq)) return;
+    const atual = mapaFreq.get(idAluno) || [];
+    atual.push(freq);
+    mapaFreq.set(idAluno, atual);
+  });
+
+  const alunos = listaAlunos.map((a) => {
+    const idAluno = Number(a.id_aluno ?? a.id);
+    const turmaObj = mapaTurmas.get(Number(a.id_turma));
+    const respObj = mapaResponsaveis.get(Number(a.id_responsavel));
+    const freqs = mapaFreq.get(idAluno);
+    const presenca =
+      freqs && freqs.length > 0
+        ? Math.round(freqs.reduce((acc, v) => acc + v, 0) / freqs.length)
+        : null;
+
+    return {
+      ...a,
+      id: idAluno,
+      id_aluno: idAluno,
+      turma: a.turma || turmaObj?.nome || 'Sem turma',
+      turno: a.turno || a.periodo || turmaObj?.periodo || turmaObj?.turno || '',
+      responsavel: respObj?.nome || a.responsavel || '',
+      responsavelDados: respObj
+        ? {
+            id_responsavel: Number(respObj.id_responsavel ?? respObj.id),
+            nome: respObj.nome ?? '',
+            cpf: respObj.cpf ?? '',
+            parentesco: respObj.parentesco ?? '',
+            telefone: respObj.telefone ?? '',
+            email: respObj.email ?? '',
+          }
+        : null,
+      presenca,
+    };
+  });
+
+  const turmas = listaTurmas.map((t) => ({
+    ...t,
+    id: Number(t.id_turma ?? t.id),
+    id_turma: Number(t.id_turma ?? t.id),
+    nome: t.nome,
+    turno: t.periodo || t.turno || '',
+  }));
+
+  return { alunos, turmas };
+}
+
+//alterações no banco dos dados do aluno e seus responsaveis
+export async function atualizarAlunoAdmin(idAluno, idResponsavel, dados) {
+  const { responsavelDados, ...camposAluno } = dados;
+
+  const requisicoes = [
+    api(`/aluno/${idAluno}`, {
+      metodo: 'PUT',
+      corpo: {
+        id_turma: camposAluno.id_turma,
+        nome: camposAluno.nome,
+        cpf: camposAluno.cpf,
+        email_institucional: camposAluno.email_institucional,
+        endereco: camposAluno.endereco,
+      },
+    }),
+  ];
+
+  if (idResponsavel && responsavelDados) {
+    requisicoes.push(
+      api(`/responsavel/${idResponsavel}`, {
+        metodo: 'PUT',
+        corpo: {
+          nome: responsavelDados.nome,
+          cpf: responsavelDados.cpf || undefined,
+          parentesco: responsavelDados.parentesco || undefined,
+          telefone: responsavelDados.telefone || undefined,
+          email: responsavelDados.email || undefined,
+        },
+      }).catch(() => null)
+    );
+  }
+
+  const [alunoAtualizado] = await Promise.all(requisicoes);
+  return alunoAtualizado;
+}
+
+export async function excluirAlunoAdmin(idAluno) {
+  return await api(`/aluno/${idAluno}`, {
+    metodo: 'DELETE',
+  });
+}
+
+// ==================== Administrador: Professores ====================
+
+//montagem da tabela e os filtros
+export async function listarProfessoresAdmin() {
+  const agora = new Date();
+  const mesAtual = agora.getMonth() + 1;
+  //se baseia no mês em que estamos para verificar as notas do bimestre
+  const bimestreAtual = mesAtual <= 4 ? 1 : mesAtual <= 7 ? 2 : mesAtual <= 10 ? 3 : 4;
+
+  //faz seis requisições ao mesmo tempo e garante que se ouver rota vazia ou falha a tela não quebra 
+  const [resProf, resTdp, resDisc, resTurmas, resAval, resNotas] = await Promise.all([
+    api('/professor?limite=100'),
+    api('/turma_disciplina_professor?limite=100').catch(() => ({ turma_disciplina_professor: [] })),
+    api('/disciplina?limite=100').catch(() => ({ dados: [] })),
+    api('/turma?limite=100').catch(() => ({ turmas: [] })),
+    api('/avaliacao?limite=100').catch(() => ({ dados: [] })),
+    api('/nota?limite=100').catch(() => ({ dados: [] })),
+  ]);
+
+  //montagem das linhas da tela filtrando os registros pertencentes ao professor
+  const listaProf = Array.isArray(resProf) ? resProf : (resProf?.dados ?? []);
+  const listaTdp = Array.isArray(resTdp)
+    ? resTdp
+    : (resTdp?.turma_disciplina_professor ?? resTdp?.dados ?? []);
+  const listaDisc = Array.isArray(resDisc)
+    ? resDisc
+    : (resDisc?.disciplinas ?? resDisc?.dados ?? []);
+  const listaTurmas = Array.isArray(resTurmas)
+    ? resTurmas
+    : (resTurmas?.turmas ?? resTurmas?.dados ?? []);
+  const listaAval = Array.isArray(resAval)
+    ? resAval
+    : (resAval?.avaliacoes ?? resAval?.dados ?? []);
+  const listaNotas = Array.isArray(resNotas)
+    ? resNotas
+    : (resNotas?.notas ?? resNotas?.dados ?? []);
+
+  const mapaDisc = new Map(listaDisc.map((d) => [Number(d.id_disciplina ?? d.id), d]));
+  const mapaTurmas = new Map(listaTurmas.map((t) => [Number(t.id_turma ?? t.id), t]));
+  const avaliacoesComNota = new Set(listaNotas.map((n) => Number(n.id_avaliacao)));
+
+  const professores = listaProf.map((p) => {
+    const idProf = Number(p.id_professor ?? p.id);
+    const vinculos = listaTdp.filter((v) => Number(v.id_professor) === idProf);
+
+    //altera os IDs para nomes e remove duplicações 
+    const nomesDisciplinas = [
+      ...new Set(
+        vinculos
+          .map((v) => v.disciplina || v.nome_disciplina || mapaDisc.get(Number(v.id_disciplina))?.nome)
+          .filter(Boolean)
+      ),
+    ];
+
+    const turmasUnicas = new Map();
+    vinculos.forEach((v) => {
+      const turmaObj = mapaTurmas.get(Number(v.id_turma));
+      const nome = v.turma || v.nome_turma || turmaObj?.nome;
+      const turno = v.periodo || v.turno || turmaObj?.periodo || turmaObj?.turno || '';
+      if (nome && !turmasUnicas.has(nome)) {
+        turmasUnicas.set(nome, { nome, turno });
+      }
+    });
+
+    const turmasDetalhes = Array.from(turmasUnicas.values());
+    const nomesTurmas = turmasDetalhes.map((t) => t.nome);
+
+    //calcula a situação de lançamento de notas do professor no bimestre atual
+    let situacao = 'novo';
+    if (vinculos.length > 0) {
+      const idsTdp = new Set(vinculos.map((v) => Number(v.id ?? v.id_tdp)));
+      const avalsBimestre = listaAval.filter(
+        (a) => idsTdp.has(Number(a.id_tdp)) && Number(a.bimestre) === bimestreAtual
+      );
+
+      if (avalsBimestre.length === 0) {
+        situacao = 'atrasado';
+      } else {
+        const todasLancadas = avalsBimestre.every((a) =>
+          avaliacoesComNota.has(Number(a.id_avaliacao ?? a.id))
+        );
+        situacao = todasLancadas ? 'em-dia' : 'atrasado';
+      }
+    }
+
+    return {
+      ...p,
+      id: idProf,
+      id_professor: idProf,
+      disciplina: nomesDisciplinas.join(', ') || 'Sem disciplina',
+      turmas: nomesTurmas.join(', ') || '–',
+      turmasDetalhes,
+      vinculos,
+      situacao,
+    };
+  });
+
+  const turmas = listaTurmas.map((t) => ({
+    ...t,
+    id: Number(t.id_turma ?? t.id),
+    id_turma: Number(t.id_turma ?? t.id),
+    nome: t.nome,
+    turno: t.periodo || t.turno || '',
+  }));
+
+  const disciplinas = listaDisc.map((d) => ({
+    ...d,
+    id: Number(d.id_disciplina ?? d.id),
+    id_disciplina: Number(d.id_disciplina ?? d.id),
+    nome: d.nome,
+  }));
+
+  return { professores, turmas, disciplinas, bimestreAtual };
+}
+
+// Atualiza dados pessoais do professor e sincroniza múltiplos vínculos (disciplinas x turmas)
+export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDisponiveis, disciplinasDisponiveis }) {
+  const idProf = Number(professorAtual.id_professor ?? professorAtual.id);
+
+  const mudouDadosPessoais =
+    dados.nome !== professorAtual.nome ||
+    dados.cpf !== professorAtual.cpf ||
+    (dados.telefone || '') !== (professorAtual.telefone || '') ||
+    dados.email !== professorAtual.email;
+
+  if (mudouDadosPessoais) {
+    await api(`/professor/${idProf}`, {
+      metodo: 'PUT',
+      corpo: {
+        nome: dados.nome,
+        cpf: dados.cpf,
+        telefone: dados.telefone || undefined,
+        email: dados.email,
+      },
+    });
+  }
+
+  // Separa múltiplas disciplinas e múltiplas turmas (ex.: "História, Geografia" e "3A, 2B")
+  const nomesDisciplinasAlvo = (dados.disciplina || '')
+    .split(',')
+    .map((n) => n.trim())
+    .filter((n) => n && n !== 'Sem disciplina');
+
+  const nomesTurmasAlvo = (dados.turmas || '')
+    .split(',')
+    .map((n) => n.trim())
+    .filter((n) => n && n !== '–');
+
+  if (nomesDisciplinasAlvo.length === 0 || nomesTurmasAlvo.length === 0) return;
+
+  // Garante que todas as disciplinas selecionadas existam no banco e coleta seus IDs
+  const idsDisciplinasAlvo = new Set();
+  for (const nomeDisc of nomesDisciplinasAlvo) {
+    let discObj = disciplinasDisponiveis.find(
+      (d) => d.nome.toLowerCase() === nomeDisc.toLowerCase()
+    );
+
+    if (!discObj) {
+      const criada = await api('/disciplina', {
+        metodo: 'POST',
+        corpo: { nome: nomeDisc },
+      });
+
+      let idDiscCriada = Number(
+        typeof criada === 'number'
+          ? criada
+          : (criada?.id_disciplina ?? criada?.id ?? criada?.dados?.id_disciplina ?? criada?.dados?.id)
+      );
+
+      if (!Number.isInteger(idDiscCriada) || idDiscCriada <= 0) {
+        const resDiscAtualizada = await api('/disciplina?limite=100');
+        const listaDiscAtualizada = Array.isArray(resDiscAtualizada)
+          ? resDiscAtualizada
+          : Object.values(resDiscAtualizada || {}).find(Array.isArray) || [];
+
+        const encontrada = listaDiscAtualizada.find(
+          (d) => String(d.nome || '').trim().toLowerCase() === nomeDisc.toLowerCase()
+        );
+        idDiscCriada = Number(encontrada?.id_disciplina ?? encontrada?.id);
+      }
+
+      if (!Number.isInteger(idDiscCriada) || idDiscCriada <= 0) {
+        throw new Error(`A disciplina "${nomeDisc}" não pôde ser vinculada porque o servidor não retornou o ID dela.`);
+      }
+
+      discObj = { id: idDiscCriada, nome: nomeDisc };
+    }
+
+    idsDisciplinasAlvo.add(Number(discObj.id));
+  }
+
+  const idsTurmasAlvo = new Set(
+    turmasDisponiveis
+      .filter((t) => nomesTurmasAlvo.includes(t.nome))
+      .map((t) => Number(t.id_turma ?? t.id))
+  );
+
+  const vinculosAtuais = professorAtual.vinculos || [];
+
+  // 1. Remove vínculos cuja disciplina ou turma foram desmarcadas
+  for (const v of vinculosAtuais) {
+    const discMantida = idsDisciplinasAlvo.has(Number(v.id_disciplina));
+    const turmaMantida = idsTurmasAlvo.has(Number(v.id_turma));
+    const idVinculo = v.id_tdp ?? v.id_turma_disciplina_professor ?? v.id;
+    if ((!discMantida || !turmaMantida) && idVinculo) {
+      await api(`/turma_disciplina_professor/${idVinculo}`, { metodo: 'DELETE' }).catch(() => null);
+    }
+  }
+
+  // 2. Cria todas as combinações (turma x disciplina) recém-selecionadas que ainda não existem
+  const chavesJaVinculadas = new Set(
+    vinculosAtuais.map((v) => `${Number(v.id_turma)}-${Number(v.id_disciplina)}`)
+  );
+
+  for (const idTurma of idsTurmasAlvo) {
+    for (const idDisciplina of idsDisciplinasAlvo) {
+      if (!chavesJaVinculadas.has(`${idTurma}-${idDisciplina}`)) {
+        await api('/turma_disciplina_professor', {
+          metodo: 'POST',
+          corpo: {
+            id_turma: idTurma,
+            id_disciplina: idDisciplina,
+            id_professor: idProf,
+          },
+        });
+      }
+    }
+  }
+}
+
+export async function excluirProfessorAdmin(idProfessor) {
+  return await api(`/professor/${idProfessor}`, {
+    metodo: 'DELETE',
+  });
+}
+
+// ==================== Administrador: Turmas ====================
+//chamadas simultâneas para fazer quatro requisições buscando os indicadores exigidos pela tabelada secretaria
+export async function listarTurmasAdmin() {
+  const [resTurmas, resAlunos, resDisc, resTdp] = await Promise.all([
+    api('/turma?limite=100'),
+    api('/aluno?limite=100').catch(() => ({ dados: [] })),
+    api('/disciplina?limite=100').catch(() => ({ dados: [] })),
+    api('/turma_disciplina_professor?limite=100').catch(() => ({ dados: [] })),
+  ]);
+
+  const listaTurmas = Array.isArray(resTurmas) ? resTurmas : (resTurmas?.dados ?? []);
+  const listaAlunos = Array.isArray(resAlunos) ? resAlunos : (resAlunos?.dados ?? []);
+  const listaDisc = Array.isArray(resDisc) ? resDisc : (resDisc?.dados ?? []);
+  const listaTdp = Array.isArray(resTdp)
+    ? resTdp
+    : (resTdp?.turma_disciplina_professor ?? resTdp?.dados ?? []);
+
+  const totalDisciplinasBase = listaDisc.length;
+
+  return listaTurmas.map((t) => {
+    const idTurma = Number(t.id_turma ?? t.id);
+    const qtdAlunos = listaAlunos.filter((a) => Number(a.id_turma) === idTurma).length;
+
+    const disciplinasComProf = new Set(
+      listaTdp
+        .filter((v) => Number(v.id_turma) === idTurma && v.id_professor)
+        .map((v) => Number(v.id_disciplina))
+    );
+
+    const semProfessor = Math.max(0, totalDisciplinasBase - disciplinasComProf.size);
+
+    return {
+      ...t,
+      id: idTurma,
+      id_turma: idTurma,
+      nome: t.nome,
+      turno: t.periodo || t.turno || '',
+      periodo: t.periodo || t.turno || '',
+      ano_letivo: t.ano_letivo ?? new Date().getFullYear(),
+      sala: t.sala || `Ano ${t.ano_letivo ?? new Date().getFullYear()}`,
+      alunos: qtdAlunos,
+      semProfessor,
+    };
+  });
+}
+
+export async function criarTurmaAdmin(dados) {
+  return await api('/turma', {
+    metodo: 'POST',
+    corpo: {
+      nome: dados.nome,
+      periodo: dados.turno || dados.periodo,
+      ano_letivo: Number(dados.ano_letivo || new Date().getFullYear()),
+    },
+  });
+}
+
+export async function atualizarTurmaAdmin(idTurma, dados) {
+  return await api(`/turma/${idTurma}`, {
+    metodo: 'PUT',
+    corpo: {
+      nome: dados.nome,
+      periodo: dados.turno || dados.periodo,
+      ano_letivo: Number(dados.ano_letivo || new Date().getFullYear()),
+    },
+  });
+}
+
+export async function excluirTurmaAdmin(idTurma) {
+  return await api(`/turma/${idTurma}`, {
+    metodo: 'DELETE',
+  });
 }

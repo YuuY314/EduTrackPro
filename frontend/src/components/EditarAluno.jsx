@@ -27,11 +27,13 @@ const cpfValido = (v) => v.replace(/\D/g, '').length === 11;
 const telefoneValido = (v) => v.replace(/\D/g, '').length >= 10;
 
 function montarForm(aluno, turmas) {
-  const turma = turmas.find((t) => t.nome === aluno.turma && t.turno === aluno.turno);
+  const turma =
+    turmas.find((t) => Number(t.id) === Number(aluno.id_turma)) ||
+    turmas.find((t) => t.nome === aluno.turma && t.turno === aluno.turno);
   const resp = aluno.responsavelDados || {};
   return {
     aluno: {
-      turma: turma?.id ?? turmas[0].id,
+      turma: turma?.id ?? turmas[0]?.id ?? '',
       nome: aluno.nome ?? '',
       cpf: aluno.cpf ?? '',
       email_institucional: aluno.email_institucional ?? '',
@@ -99,9 +101,10 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
     const turma = turmas.find((t) => String(t.id) === String(form.aluno.turma));
     const { aluno: a, responsavel: r } = form;
     onSalvar({
+      id_turma: Number(form.aluno.turma),
       nome: a.nome.trim(),
-      turma: turma.nome,
-      turno: turma.turno,
+      turma: turma?.nome ?? aluno.turma,
+      turno: turma?.turno ?? aluno.turno,
       cpf: a.cpf,
       email_institucional: a.email_institucional.trim(),
       endereco: a.endereco.trim(),

@@ -38,7 +38,12 @@ export async function criar(turma) {
   const sql = 'INSERT INTO turmas (nome, periodo, ano_letivo) VALUES (?, ?, ?)';
   const valores = [turma.nome, turma.periodo, turma.ano_letivo];
   const [resultado] = await pool.query(sql, valores);
-  return { ...turma, id: resultado.insertId, imagem_url: null };
+  return {
+    ...turma,
+    id: resultado.insertId,
+    id_turma: resultado.insertId,
+    imagem_url: null,
+  };
 }
 
 // 4. Atualização completa (PUT)
