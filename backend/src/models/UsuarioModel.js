@@ -42,6 +42,14 @@ export async function buscarPorId(id) {
   return linhas[0] ?? null;
 }
 
+export async function buscarPorEmailGoogle(email) {
+  const [linhas] = await pool.execute(
+    `${SELECT_USUARIO} WHERE LOWER(u.email) = LOWER(?) LIMIT 1`,
+    [email]
+  );
+  return linhas[0] ?? null;
+}
+
 export async function criar({ email, senha_hash, perfil }, db = pool) {
   const [resultado] = await db.execute(
     'INSERT INTO usuarios (email, senha_hash, perfil) VALUES (?, ?, ?)',
@@ -56,4 +64,11 @@ export async function atualizarEmail(id, email, db = pool) {
 
 export async function excluir(id, db = pool) {
   await db.execute('DELETE FROM usuarios WHERE id_usuario = ?', [id]);
+}
+
+export async function atualizarSenha(idUsuario, senhaHash, db = pool) {
+  await db.execute(
+    'UPDATE usuarios SET senha_hash = ? WHERE id_usuario = ?',
+    [senhaHash, idUsuario]
+  );
 }

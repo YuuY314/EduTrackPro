@@ -2,10 +2,16 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const CHAVE_SESSAO = 'edutrackpro:sessao';
+export const CHAVE_CONVERSA_SOPHOS = 'edutrackpro:sophos-ai';
 
 // fetch que já manda o token e transforma { erro } da API em exceção.
-export async function api(caminho, { metodo = 'GET', corpo } = {}) {
-  const sessao = lerSessao();
+export async function api(caminho, {
+  metodo = 'GET',
+  corpo,
+  autenticada = true
+} = {}) {
+  const sessao = autenticada ? lerSessao() : null;
+
   const resposta = await fetch(`${API_URL}${caminho}`, {
     method: metodo,
     headers: {
@@ -15,17 +21,36 @@ export async function api(caminho, { metodo = 'GET', corpo } = {}) {
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
 
-  // Mandamos um token e o backend respondeu 401: o token venceu, foi
-  // adulterado ou a conta foi apagada. Equivale ao session_destroy() do PHP.
   if (resposta.status === 401 && sessao) {
     sessaoExpirou();
     throw new Error('Sessão expirada. Faça login novamente.');
   }
 
   if (resposta.status === 204) return null;
+
   const dados = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível falar com o servidor.');
+
+  if (!resposta.ok) {
+    throw new Error(dados.erro || 'Não foi possível falar com o servidor.');
+  }
+
   return dados;
+}
+
+// SophosAI (Gemini via backend). `historico` no formato do Gemini:
+// [{ role: 'user' | 'model', parts: [{ text }] }]. Devolve { resposta }.
+export function conversarComSophosAI({ mensagem, historico = [] }) {
+  return api('/sophos-ai/chat', { metodo: 'POST', corpo: { mensagem, historico } });
+}
+
+export async function loginGoogle({ credential, perfil, lembrar = false }) {
+  sair();
+  const sessao = await api('/auth/google', {
+    metodo: 'POST',
+    corpo: { credential, perfil },
+  });
+  (lembrar ? localStorage : sessionStorage).setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+  return sessao;
 }
 
 export async function login({ login, senha, perfil, lembrar }) {
@@ -56,6 +81,7 @@ export async function buscarMeuBoletim() {
 export function sair() {
   localStorage.removeItem(CHAVE_SESSAO);
   sessionStorage.removeItem(CHAVE_SESSAO);
+  sessionStorage.removeItem(CHAVE_CONVERSA_SOPHOS); // a conversa com a IA não passa para o próximo login
 }
 
 // Limpa a sessão e volta para o login com o aviso "sua sessão expirou".
@@ -118,28 +144,49 @@ export async function buscarDashboardAluno() {
   };
 }
 
-//ele vai buscar cinco rotas diferentes da API ao mesmo tempo para retornar as informações do dasboard de uma só vez
+/*
+  Solicita um link para recuperação de senha.
+  Não exige autenticação.
+*/
+export async function solicitarRecuperacaoSenha({ login }) {
+  return await api('/auth/recuperar-senha', {
+    metodo: 'POST',
+    corpo: { login },
+    autenticada: false,
+  });
+}
+
+/*
+  Define uma nova senha utilizando o token recebido por e-mail.
+  Não exige autenticação.
+*/
+export async function redefinirSenha({ token, senha }) {
+  return await api('/auth/redefinir-senha', {
+    metodo: 'POST',
+    corpo: { token, senha },
+    autenticada: false,
+  });
+}
+//ele vai buscar cinco rotas diferentes da API ao mesmo tempo para retornar as informações do dashboard de uma só vez
 export async function buscarDashboardProfessor() {
 
-  //primeiro ele lê quem está logado para pegar o ID do professor e em seguida fas as chamadas de API em paralelo (tornando o carregamento mais rápido) 
+  //primeiro ele lê quem está logado para pegar o ID do professor e em seguida faz as chamadas de API em paralelo (tornando o carregamento mais rápido) 
   const sessao = lerSessao();
   const idProfessor = sessao?.usuario?.id_professor;
 
-  const [resTurmas, resHorarios, resFaltas, resBoletim, resAlunos] = await Promise.all([
+  const [resTurmas, resFaltas, resAlunos, resAulas] = await Promise.all([
     idProfessor
       ? api(`/turma_disciplina_professor/professor/${idProfessor}`).catch(() => ({ dados: [] }))
       : Promise.resolve({ dados: [] }),
-    api('/horario_aula').catch(() => ({ dados: [] })),
     api('/faltas_aluno').catch(() => ({ dados: [] })),
-    api('/boletim').catch(() => ({ dados: [] })),
     api('/aluno').catch(() => ({ dados: [] })),
+    api('/aula').catch(() => ({ dados: [] })),
   ]);
 
   const listaTdp = Array.isArray(resTurmas) ? resTurmas : (resTurmas?.dados ?? []);
-  const listaHorarios = Array.isArray(resHorarios) ? resHorarios : (resHorarios?.dados ?? []);
   const listaFaltas = Array.isArray(resFaltas) ? resFaltas : (resFaltas?.dados ?? []);
-  const listaBoletim = Array.isArray(resBoletim) ? resBoletim : (resBoletim?.dados ?? []);
   const listaAlunos = Array.isArray(resAlunos) ? resAlunos : (resAlunos?.dados ?? []);
+  const listaAulas = Array.isArray(resAulas) ? resAulas : (resAulas?.dados ?? []);
 
   //como o professor pode dar mais de uma materia para a mesma turma ele vai eliminar duplicações e criar uma lista de IDs pertencentes ao professor
   const turmasUnicas = Array.from(
@@ -147,24 +194,55 @@ export async function buscarDashboardProfessor() {
   );
   const idsTdpProfessor = new Set(listaTdp.map((t) => Number(t.id_tdp ?? t.id)));
   const idsTurmasProfessor = new Set(turmasUnicas.map((t) => Number(t.id_turma ?? t.id)));
-  const disciplinasProfessor = new Set(
-    listaTdp.map((t) => String(t.disciplina || t.nome_disciplina || '').toLowerCase()).filter(Boolean)
-  );
   const mapaAlunos = new Map(listaAlunos.map((a) => [Number(a.id_aluno ?? a.id), a]));
 
+  const agora = new Date();
   const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  const hojeIndice = new Date().getDay();
+  const hojeIndice = agora.getDay();
   const hojeNome = diasSemana[hojeIndice].toLowerCase();
+  const hojeISO = [
+    agora.getFullYear(),
+    String(agora.getMonth() + 1).padStart(2, '0'),
+    String(agora.getDate()).padStart(2, '0'),
+  ].join('-');
+  const mesAtual = agora.getMonth() + 1;
+  const bimestreAtual = mesAtual <= 4 ? 1 : mesAtual <= 7 ? 2 : mesAtual <= 10 ? 3 : 4;
 
-  //descobre qual é o dia da semana de hoje pelo relógio do computador, mantendo os horários que pertencem ao professor e ordenando as aulas da masi cedo para a mais tarde
+  //busca os horários fixos e as notas do bimestre atual direto por cada id_tdp do professor (sem corte de paginação)
+  const bimestresTodos = [1, 2, 3, 4];
+
+  //busca os horários fixos e as notas dos 4 bimestres direto por cada id_tdp do professor
+  const [respostasHorarios, respostasTodosBimestres] = await Promise.all([
+    Promise.all(
+      listaTdp.map((t) => {
+        const idTdp = t.id_tdp ?? t.id;
+        return idTdp
+          ? api(`/frequencia/horarios/${idTdp}`).catch(() => ({ dados: [] }))
+          : Promise.resolve({ dados: [] });
+      })
+    ),
+    Promise.all(
+      listaTdp.flatMap((t) => {
+        const idTdp = t.id_tdp ?? t.id;
+        const idTurma = Number(t.id_turma ?? t.id);
+        return bimestresTodos.map((bim) =>
+          idTdp
+            ? api(`/nota/boletim?id_tdp=${idTdp}&bimestre=${bim}`)
+                .then((res) => ({ idTurma, bim, notas: res?.dados?.notas ?? [] }))
+                .catch(() => ({ idTurma, bim, notas: [] }))
+            : Promise.resolve({ idTurma, bim, notas: [] })
+        );
+      })
+    ),
+  ]);
+
+  const listaHorarios = respostasHorarios.flatMap((r) =>
+    Array.isArray(r) ? r : (r?.dados ?? [])
+  );
+
+  //descobre qual é o dia da semana de hoje pelo relógio do computador, mantendo os horários que pertencem ao professor e ordenando as aulas da mais cedo para a mais tarde
   const aulasHoje = listaHorarios
     .filter((h) => {
-      const pertenceProfessor =
-        (h.id_professor && Number(h.id_professor) === Number(idProfessor)) ||
-        (h.id_tdp && idsTdpProfessor.has(Number(h.id_tdp)));
-
-      if (!pertenceProfessor) return false;
-
       const dia = String(h.dia_semana ?? h.dia ?? '').toLowerCase();
       return (
         dia.startsWith(hojeNome.slice(0, 3)) ||
@@ -184,12 +262,37 @@ export async function buscarDashboardProfessor() {
 
       return {
         id: h.id_horario ?? h.id ?? `${hora}-${idx}`,
+        idTdp: Number(h.id_tdp),
         hora,
         turma: turmaNome || 'Turma',
         detalhe: disciplinaNome,
       };
     })
     .sort((a, b) => a.hora.localeCompare(b.hora));
+
+  //inclui também chamadas registradas hoje na tabela aulas caso o professor tenha dado aula fora do horário fixo
+  const tdpsJaNaLista = new Set(aulasHoje.map((a) => a.idTdp));
+  listaAulas.forEach((a, idx) => {
+    const idTdp = Number(a.id_tdp);
+    const dataRegistro = a.data ? String(a.data).slice(0, 10) : '';
+    if (!idsTdpProfessor.has(idTdp) || dataRegistro !== hojeISO || tdpsJaNaLista.has(idTdp)) {
+      return;
+    }
+    tdpsJaNaLista.add(idTdp);
+    const tdp = listaTdp.find((t) => Number(t.id_tdp ?? t.id) === idTdp) || {};
+    const turmaNome = [tdp.turma || tdp.nome_turma, tdp.turno || tdp.periodo]
+      .filter(Boolean)
+      .join(' · ');
+    const disciplinaNome = tdp.disciplina || tdp.nome_disciplina || 'Aula';
+
+    aulasHoje.push({
+      id: `aula-${a.id_aula ?? a.id ?? idx}`,
+      idTdp,
+      hora: a.conteudo || 'Chamada registrada',
+      turma: turmaNome || 'Turma',
+      detalhe: disciplinaNome,
+    });
+  });
 
   //filtra alunos com o percentual abaixo de 75% e ordenando de menor percentual ao maior (mais criticos no topo) 
   const alunosBaixaFrequencia = listaFaltas
@@ -226,29 +329,16 @@ export async function buscarDashboardProfessor() {
     })
     .sort((a, b) => a.frequencia - b.frequencia);
 
-  //Turmas sem nota lançada no bimestre atual (calculado pela data de hoje)
-  const mesAtual = new Date().getMonth() + 1;
-  const bimestreAtual = mesAtual <= 4 ? 1 : mesAtual <= 7 ? 2 : mesAtual <= 10 ? 3 : 4;
-
-  const turmasComNotaNoBimestre = new Set();
-  listaBoletim.forEach((b) => {
-    if (Number(b.bimestre) !== bimestreAtual || (b.nota == null && b.media == null)) return;
-    if (
-      disciplinasProfessor.size > 0 &&
-      b.disciplina &&
-      !disciplinasProfessor.has(String(b.disciplina).toLowerCase())
-    ) {
-      return;
-    }
-    const alunoInfo = mapaAlunos.get(Number(b.id_aluno));
-    const idTurma = b.id_turma ?? alunoInfo?.id_turma;
-    if (idTurma) {
-      turmasComNotaNoBimestre.add(Number(idTurma));
+  //Turmas que possuem pelo menos um bimestre (1º ao 4º) sem nenhuma nota lançada
+  const turmasComPendencia = new Set();
+  respostasTodosBimestres.forEach(({ idTurma, notas }) => {
+    if (idTurma && notas.length === 0) {
+      turmasComPendencia.add(idTurma);
     }
   });
 
-  const turmasSemNota = turmasUnicas.filter(
-    (t) => !turmasComNotaNoBimestre.has(Number(t.id_turma ?? t.id))
+  const turmasSemNota = turmasUnicas.filter((t) =>
+    turmasComPendencia.has(Number(t.id_turma ?? t.id))
   ).length;
 
   const disciplinaPrincipal =

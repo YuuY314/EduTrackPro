@@ -8,18 +8,24 @@ import { corDaNota, media } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
 
+const bimestres = [
+  { value: '3', label: '3º Bimestre' },
+  { value: '4', label: '4º Bimestre' },
+];
+
 export default function Notas() {
   const searchParams = useSearchParams();
   const turmaUrl = searchParams.get('turma');
 
   const [turmasProf, setTurmasProf] = useState([]);
   const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
-  const [bimestre, setBimestre] = useState('3');
+  // const [bimestre, setBimestre] = useState('3');
 
   const [linhas, setLinhas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
+  const [bimestre, setBimestre] = useState(bimestres[0].value);
 
   useEffect(() => {
     const sessao = lerSessao();
@@ -113,6 +119,10 @@ export default function Notas() {
   }, [idTdpSelecionado, bimestre, turmasProf]);
 
   function mudarNota(indiceAluno, indiceNota, valor) {
+    if (valor !== '' && (Number(valor) < 0 || Number(valor) > 10)) {
+      setMensagem('A nota deve estar entre 0 e 10.');
+      return;
+    }
     const novas = [...linhas];
     novas[indiceAluno] = { ...novas[indiceAluno], notas: [...novas[indiceAluno].notas] };
     novas[indiceAluno].notas[indiceNota] = valor;
@@ -225,6 +235,11 @@ export default function Notas() {
                             step="0.5"
                             value={nota}
                             aria-label={`${linha.aluno} – ${avaliacoes[j]}`}
+                            onKeyDown={(e) => {
+                              if (['e', 'E', '+', '-'].includes(e.key)) {
+                                e.preventDefault();
+                              }
+                            }}
                             onChange={(e) => mudarNota(i, j, e.target.value)}
                           />
                         </td>

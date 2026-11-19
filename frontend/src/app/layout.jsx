@@ -6,6 +6,7 @@ import '@fontsource/nunito-sans/600.css';
 import '@fontsource/nunito-sans/700.css';
 import '@fontsource/nunito-sans/800.css';
 import './globals.css';
+import 'katex/dist/katex.min.css';
 
 export const metadata = {
   title: 'EduTrackPro',

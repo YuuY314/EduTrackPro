@@ -14,3 +14,19 @@ export async function login(req, res) {
 export async function me(req, res) {
   res.json(await AuthService.me(req.usuario.sub));
 }
+
+// POST /api/auth/google { credential, perfil }
+export async function loginGoogle(req, res) {
+  const { credential, perfil } = req.body ?? {};
+  res.json(await AuthService.loginGoogle(credential, perfil));
+}
+
+// POST /api/auth/recuperar-senha { login }
+export async function solicitarRecuperacaoSenha(req, res) {
+  res.json(await AuthService.solicitarRecuperacaoSenha(req.body));
+}
+
+// POST /api/auth/redefinir-senha { token, senha }
+export async function redefinirSenha(req, res) {
+  res.json(await AuthService.redefinirSenha(req.body));
+}

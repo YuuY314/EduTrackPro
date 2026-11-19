@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import CalendarioGrade from '@/src/components/CalendarioGrade';
 import { api, lerSessao } from '@/src/lib/api';
+import Selecao from '@/src/components/Selecao';
+import SeletorData from '@/src/components/SeletorData';
 import { formatarData, hojeISO } from '@/src/lib/calendario';
 
 const tiposProfessor = ['Avaliação', 'Reunião de pais/responsáveis', 'Dia não letivo'];
@@ -133,29 +135,34 @@ export default function CalendarioProfessor() {
       <form className="cartao formulario" onSubmit={enviar}>
         <div className="campo">
           <label htmlFor="data-solicitacao">Data</label>
-          <input id="data-solicitacao" type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+          <SeletorData id="data-solicitacao" compacto obrigatorio value={data} onChange={(e) => setData(e.target.value)} />
         </div>
         <div className="campo">
           <label htmlFor="tipo-solicitacao">Tipo</label>
-          <select id="tipo-solicitacao" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            {tiposProfessor.map((t) => <option key={t}>{t}</option>)}
-          </select>
+          <Selecao
+            id="tipo-solicitacao"
+            compacto
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            opcoes={tiposProfessor.map((t) => ({ value: t, label: t }))}
+          />
         </div>
         <div className="campo">
           <label htmlFor="turma-solicitacao">Turma</label>
-          <select id="turma-solicitacao" value={idTurma} onChange={(e) => setIdTurma(e.target.value)}>
-            <option value="">Todas as turmas</option>
-            {turmas.map((t) => {
-              const valorId = t.id_turma ?? t.id;
-              const nome = t.turma || t.nome_turma || t.nome;
-              const turno = t.turno || t.periodo || '';
-              return (
-                <option key={valorId} value={valorId}>
-                  {nome}{turno ? ` · ${turno}` : ''}
-                </option>
-              );
-            })}
-          </select>
+          <Selecao
+            id="turma-solicitacao"
+            compacto
+            value={idTurma}
+            onChange={(e) => setIdTurma(e.target.value)}
+            opcoes={[
+              { value: '', label: 'Todas as turmas' },
+              ...turmas.map((t) => ({
+                value: String(t.id_turma ?? t.id),
+                label: t.turma || t.nome_turma || t.nome || 'Turma',
+                detalhe: t.turno || t.periodo || '',
+              })),
+            ]}
+          />
         </div>
         <div className="campo">
           <label htmlFor="descricao-solicitacao">Descrição</label>
