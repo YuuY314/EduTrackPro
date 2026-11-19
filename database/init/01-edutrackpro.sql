@@ -198,6 +198,23 @@ CREATE TABLE administradores (
   CONSTRAINT fk_admin_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
 ) ENGINE=InnoDB;
 
+CREATE TABLE calendario_eventos (
+  id_evento     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_professor  INT UNSIGNED NULL,          -- NULL quando criado direto pela administração
+  id_turma      INT UNSIGNED NULL,          -- NULL = todas as turmas
+  data          DATE NOT NULL,
+  tipo          ENUM('Letivo','Dia não letivo','Reunião de pais/responsáveis','Avaliação','Feriado') NOT NULL,
+  descricao     VARCHAR(255) NULL,
+  status        ENUM('pendente','confirmada','recusada') NOT NULL DEFAULT 'confirmada',
+  motivo        VARCHAR(255) NULL,
+  criado_em     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_evento),
+  KEY idx_cal_data (data),
+  KEY idx_cal_status (status),
+  CONSTRAINT fk_cal_professor FOREIGN KEY (id_professor) REFERENCES professores (id_professor) ON DELETE SET NULL,
+  CONSTRAINT fk_cal_turma     FOREIGN KEY (id_turma)     REFERENCES turmas (id_turma)           ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- =====================================================================
 -- 2) DADOS DE TESTE
 -- =====================================================================
@@ -420,6 +437,12 @@ INSERT INTO avisos (id_autor, id_turma, titulo, texto, data_publicacao) VALUES
 (32, NULL, 'Suspensão de aula em 23/10',        'Dia não letivo. As aulas retornam normalmente na segunda-feira.', '2026-10-19 09:00:00'),
 (32, 1,    'Reunião de pais e responsáveis',    'Reunião do 3º bimestre da turma 3A na segunda, 26/10, às 19h.',   '2026-10-20 10:30:00'),
 (2,  1,    'Prova de Matemática',               'Revisão de funções e logaritmos na próxima semana.',              '2026-10-21 14:00:00');
+
+-- ---- calendario ---------------------------------
+INSERT INTO calendario_eventos (id_professor, id_turma, data, tipo, descricao, status) VALUES
+(NULL, NULL, '2026-11-20', 'Feriado',                      'Dia da Consciência Negra',                  'confirmada'),
+(NULL, 1,    '2026-11-24', 'Reunião de pais/responsáveis', 'Reunião do 4º bimestre da turma 3A às 19h', 'confirmada'),
+(2,    1,    '2026-11-27', 'Avaliação',                    'Prova de funções exponenciais e logaritmos', 'pendente');
 
 -- =====================================================================
 -- 3) VIEWS ÚTEIS (boletim e faltas calculados, nunca guardados)

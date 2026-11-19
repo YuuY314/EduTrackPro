@@ -167,3 +167,150 @@ export async function redefinirSenha({ token, senha }) {
     autenticada: false,
   });
 }
+//ele vai buscar cinco rotas diferentes da API ao mesmo tempo para retornar as informações do dasboard de uma só vez
+export async function buscarDashboardProfessor() {
+
+  //primeiro ele lê quem está logado para pegar o ID do professor e em seguida fas as chamadas de API em paralelo (tornando o carregamento mais rápido) 
+  const sessao = lerSessao();
+  const idProfessor = sessao?.usuario?.id_professor;
+
+  const [resTurmas, resHorarios, resFaltas, resBoletim, resAlunos] = await Promise.all([
+    idProfessor
+      ? api(`/turma_disciplina_professor/professor/${idProfessor}`).catch(() => ({ dados: [] }))
+      : Promise.resolve({ dados: [] }),
+    api('/horario_aula').catch(() => ({ dados: [] })),
+    api('/faltas_aluno').catch(() => ({ dados: [] })),
+    api('/boletim').catch(() => ({ dados: [] })),
+    api('/aluno').catch(() => ({ dados: [] })),
+  ]);
+
+  const listaTdp = Array.isArray(resTurmas) ? resTurmas : (resTurmas?.dados ?? []);
+  const listaHorarios = Array.isArray(resHorarios) ? resHorarios : (resHorarios?.dados ?? []);
+  const listaFaltas = Array.isArray(resFaltas) ? resFaltas : (resFaltas?.dados ?? []);
+  const listaBoletim = Array.isArray(resBoletim) ? resBoletim : (resBoletim?.dados ?? []);
+  const listaAlunos = Array.isArray(resAlunos) ? resAlunos : (resAlunos?.dados ?? []);
+
+  //como o professor pode dar mais de uma materia para a mesma turma ele vai eliminar duplicações e criar uma lista de IDs pertencentes ao professor
+  const turmasUnicas = Array.from(
+    new Map(listaTdp.map((t) => [t.id_turma ?? t.id, t])).values()
+  );
+  const idsTdpProfessor = new Set(listaTdp.map((t) => Number(t.id_tdp ?? t.id)));
+  const idsTurmasProfessor = new Set(turmasUnicas.map((t) => Number(t.id_turma ?? t.id)));
+  const disciplinasProfessor = new Set(
+    listaTdp.map((t) => String(t.disciplina || t.nome_disciplina || '').toLowerCase()).filter(Boolean)
+  );
+  const mapaAlunos = new Map(listaAlunos.map((a) => [Number(a.id_aluno ?? a.id), a]));
+
+  const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  const hojeIndice = new Date().getDay();
+  const hojeNome = diasSemana[hojeIndice].toLowerCase();
+
+  //descobre qual é o dia da semana de hoje pelo relógio do computador, mantendo os horários que pertencem ao professor e ordenando as aulas da masi cedo para a mais tarde
+  const aulasHoje = listaHorarios
+    .filter((h) => {
+      const pertenceProfessor =
+        (h.id_professor && Number(h.id_professor) === Number(idProfessor)) ||
+        (h.id_tdp && idsTdpProfessor.has(Number(h.id_tdp)));
+
+      if (!pertenceProfessor) return false;
+
+      const dia = String(h.dia_semana ?? h.dia ?? '').toLowerCase();
+      return (
+        dia.startsWith(hojeNome.slice(0, 3)) ||
+        Number(h.dia_semana) === hojeIndice ||
+        Number(h.dia_semana) === hojeIndice + 1
+      );
+    })
+    .map((h, idx) => {
+      const tdp = listaTdp.find((t) => Number(t.id_tdp ?? t.id) === Number(h.id_tdp)) || h;
+      const inicio = String(h.hora_inicio ?? h.inicio ?? '').slice(0, 5);
+      const fim = String(h.hora_fim ?? h.fim ?? '').slice(0, 5);
+      const hora = inicio && fim ? `${inicio} - ${fim}` : inicio || `Aula ${idx + 1}`;
+      const turmaNome = [tdp.turma || tdp.nome_turma, tdp.turno || tdp.periodo]
+        .filter(Boolean)
+        .join(' · ');
+      const disciplinaNome = tdp.disciplina || tdp.nome_disciplina || 'Aula';
+
+      return {
+        id: h.id_horario ?? h.id ?? `${hora}-${idx}`,
+        hora,
+        turma: turmaNome || 'Turma',
+        detalhe: disciplinaNome,
+      };
+    })
+    .sort((a, b) => a.hora.localeCompare(b.hora));
+
+  //filtra alunos com o percentual abaixo de 75% e ordenando de menor percentual ao maior (mais criticos no topo) 
+  const alunosBaixaFrequencia = listaFaltas
+    .filter((f) => {
+      const alunoInfo = mapaAlunos.get(Number(f.id_aluno));
+      const idTurma = f.id_turma ?? alunoInfo?.id_turma;
+
+      const pertence =
+        (f.id_professor && Number(f.id_professor) === Number(idProfessor)) ||
+        (f.id_tdp && idsTdpProfessor.has(Number(f.id_tdp))) ||
+        (idTurma && idsTurmasProfessor.has(Number(idTurma)));
+
+      if (!pertence && (f.id_professor || f.id_tdp || idTurma)) return false;
+
+      const freq = Number(f.frequencia ?? f.percentual_presenca ?? f.presenca_percentual ?? 100);
+      return freq < 75;
+    })
+    .map((f, idx) => {
+      const alunoInfo = mapaAlunos.get(Number(f.id_aluno));
+      const freq = Math.round(
+        Number(f.frequencia ?? f.percentual_presenca ?? f.presenca_percentual ?? 0)
+      );
+      return {
+        id: f.id_aluno ?? f.id ?? idx,
+        nome: f.aluno || f.nome_aluno || f.nome || alunoInfo?.nome || 'Aluno',
+        detalhe: [
+          f.turma || f.nome_turma || alunoInfo?.turma || alunoInfo?.nome_turma,
+          f.turno || f.periodo || alunoInfo?.turno || alunoInfo?.periodo,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        frequencia: freq,
+      };
+    })
+    .sort((a, b) => a.frequencia - b.frequencia);
+
+  //Turmas sem nota lançada no bimestre atual (calculado pela data de hoje)
+  const mesAtual = new Date().getMonth() + 1;
+  const bimestreAtual = mesAtual <= 4 ? 1 : mesAtual <= 7 ? 2 : mesAtual <= 10 ? 3 : 4;
+
+  const turmasComNotaNoBimestre = new Set();
+  listaBoletim.forEach((b) => {
+    if (Number(b.bimestre) !== bimestreAtual || (b.nota == null && b.media == null)) return;
+    if (
+      disciplinasProfessor.size > 0 &&
+      b.disciplina &&
+      !disciplinasProfessor.has(String(b.disciplina).toLowerCase())
+    ) {
+      return;
+    }
+    const alunoInfo = mapaAlunos.get(Number(b.id_aluno));
+    const idTurma = b.id_turma ?? alunoInfo?.id_turma;
+    if (idTurma) {
+      turmasComNotaNoBimestre.add(Number(idTurma));
+    }
+  });
+
+  const turmasSemNota = turmasUnicas.filter(
+    (t) => !turmasComNotaNoBimestre.has(Number(t.id_turma ?? t.id))
+  ).length;
+
+  const disciplinaPrincipal =
+    listaTdp[0]?.disciplina || listaTdp[0]?.nome_disciplina || 'suas turmas';
+
+  return {
+    bimestreAtual,
+    totalAulasHoje: aulasHoje.length,
+    turmasSemNota,
+    totalTurmas: turmasUnicas.length,
+    totalBaixaFrequencia: alunosBaixaFrequencia.length,
+    aulasHoje,
+    alunosBaixaFrequencia,
+    disciplinaPrincipal,
+  };
+}

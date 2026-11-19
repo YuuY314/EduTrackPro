@@ -62,8 +62,21 @@ export async function excluir(id) {
   return resultado.affectedRows > 0;
 }
 
+function posicaoDaNota(titulo, colunas = ['Prova 1', 'Prova 2', 'Trabalho']) {
+  //direciona para a coluna (0, 1, 2) quando o titulo bate com o nome escrito no código
+  const posicaoExata = colunas.indexOf(titulo);
+  if (posicaoExata !== -1) return posicaoExata;
+  //se o nome não bater por estar como nome antigo que já veio do banco de dados
+  const texto = String(titulo || '').trim().toLowerCase();
+  if (texto.startsWith('prova -') || texto === 'prova') return 0; 
+  if (texto.startsWith('trabalho -') || texto === 'trabalho') return 2; 
+  return -1;
+}
+
+//carega todas as avaliações e notas já lançadas
 export async function buscarBoletim(id_tdp, bimestre) {
   const [avaliacoes] = await pool.query(
+    //busca as avaliações já existentes no banco e se não existir nenhum retorna vazio
     'SELECT id_avaliacao, titulo, bimestre, peso FROM avaliacoes WHERE id_tdp = ? AND bimestre = ? ORDER BY id_avaliacao',
     [id_tdp, bimestre]
   );
@@ -72,53 +85,88 @@ export async function buscarBoletim(id_tdp, bimestre) {
     return { avaliacoes: [], notas: [] };
   }
 
+  const colunas = ['Prova 1', 'Prova 2', 'Trabalho'];
+  //passa a avaliação pela função posicaoNota para renomear os nomes antigos do banco
+  const avaliacoesAjustadas = avaliacoes.map((a) => {
+    const pos = posicaoDaNota(a.titulo, colunas);
+    return {
+      ...a,
+      titulo: pos !== -1 ? colunas[pos] : a.titulo,
+    };
+  });
+
   const idsAval = avaliacoes.map((a) => a.id_avaliacao);
   const [notas] = await pool.query(
+    //vai procurar a nota por id para atribiur ao aluno ao mesmo tempo convertendo para um número real
     'SELECT id, id_avaliacao, id_aluno, valor FROM notas WHERE id_avaliacao IN (?)',
     [idsAval]
   );
 
   return {
-    avaliacoes,
+    avaliacoes: avaliacoesAjustadas,
     notas: notas.map(hidratarNota)
   };
 }
 
+//quando salvo grava a tabela no banco de uma só vez
 export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registros }) {
+  //para garantir que o banco nunca fique salvo de forma incompleta ou corrompida se der qualquer erro no meio do caminho ele volta exatamente no estado em que estava antes de clicar em salvar
   const conexao = await pool.getConnection();
   try {
     await conexao.beginTransaction();
 
-    // 1. Garante que existam as 3 avaliações (Prova 1, Prova 2, Trabalho) para o id_tdp e bimestre
+    const pesosPorTitulo = {
+      'Prova 1': 0.40,
+      'Prova 2': 0.30,
+      'Trabalho': 0.30,
+    };
+
     const [existentes] = await conexao.query(
-      'SELECT id_avaliacao, titulo FROM avaliacoes WHERE id_tdp = ? AND bimestre = ?',
+      'SELECT id_avaliacao, titulo FROM avaliacoes WHERE id_tdp = ? AND bimestre = ? ORDER BY id_avaliacao',
       [id_tdp, bimestre]
     );
 
-    const mapaAval = new Map(existentes.map((a) => [a.titulo, a.id_avaliacao]));
+    //verifica se já existem avaliações salvas para aquela turma e bimestre (atualizando o peso), caso não tenha cria e guarda o id gerado
+    const mapaAval = new Map();
+    for (const a of existentes) {
+      const pos = posicaoDaNota(a.titulo, titulos);
+      if (pos !== -1 && !mapaAval.has(titulos[pos])) {
+        const tituloOficial = titulos[pos];
+        mapaAval.set(tituloOficial, a.id_avaliacao);
+        await conexao.query(
+          'UPDATE avaliacoes SET peso = ? WHERE id_avaliacao = ?',
+          [pesosPorTitulo[tituloOficial] ?? 1.00, a.id_avaliacao]
+        );
+      }
+    }
 
     for (const titulo of titulos) {
       if (!mapaAval.has(titulo)) {
+        const peso = pesosPorTitulo[titulo] ?? 1.00;
         const [resAval] = await conexao.query(
-          'INSERT INTO avaliacoes (id_tdp, titulo, bimestre, peso) VALUES (?, ?, ?, 1.00)',
-          [id_tdp, titulo, bimestre]
+          'INSERT INTO avaliacoes (id_tdp, titulo, bimestre, peso) VALUES (?, ?, ?, ?)',
+          [id_tdp, titulo, bimestre, peso]
         );
         mapaAval.set(titulo, resAval.insertId);
       }
     }
 
-    // 2. Insere, atualiza ou remove (quando deixada em branco) cada nota do aluno
+    //contador para gravar a quantidade de notas que foram salvas
     let totalSalvas = 0;
+    //laço de fora percorre os alunos
     for (const reg of registros) {
+      //laço de dentro percorre as colunas
       for (let i = 0; i < titulos.length; i++) {
         const id_avaliacao = mapaAval.get(titulos[i]);
         const valorRaw = reg.notas[i];
 
+        //se o campo estiver vazio (se o professor apagar a nota) o registro é removido do banco
         if (valorRaw === '' || valorRaw === null || valorRaw === undefined) {
           await conexao.query(
             'DELETE FROM notas WHERE id_avaliacao = ? AND id_aluno = ?',
             [id_avaliacao, reg.id_aluno]
           );
+        //serve para inserir uma nota nova ou alterar uma nota que já existe no banco
         } else {
           const valorNum = Number(valorRaw);
           await conexao.query(
