@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import EditarProfessor from '@/src/components/EditarProfessor';
 import Selecao from '@/src/components/Selecao';
-import { professores as professoresIniciais, turmas } from '@/src/lib/dados';
+import { admin } from '@/src/lib/api';
 
 const situacoes = {
   'atrasado': { cor: 'ruim', texto: 'Atrasado' },
@@ -13,32 +13,45 @@ const situacoes = {
   'novo': { cor: 'vazio', texto: 'Novo' },
 };
 
-let proximoId = 1;
-const novoId = () => `prof-${proximoId++}`;
 
 export default function Professores() {
-  const [professores, setProfessores] = useState(() =>
-    professoresIniciais.map((p) => ({ id: novoId(), ...p }))
-  );
+  const [professores, setProfessores] = useState([]);
+  const [turmas, setTurmas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
   const [lembrados, setLembrados] = useState([]);
   const [busca, setBusca] = useState('');
   const [disciplina, setDisciplina] = useState('');
   const [editando, setEditando] = useState(null);
 
-  const disciplinas = [...new Set(professores.map((p) => p.disciplina))].sort();
+  useEffect(() => {
+    Promise.all([admin.professores(), admin.turmas()])
+      .then(([p, t]) => { setProfessores(p); setTurmas(t); })
+      .catch((e) => setErro(e.message))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const disciplinas = [...new Set(professores.flatMap((p) => (p.disciplina ? p.disciplina.split(', ') : [])))].sort();
+  const nomesTurmas = (p) => turmas.filter((t) => p.ids_turmas.includes(t.id)).map((t) => t.nomeCurto).join(', ') || '–';
 
   const visiveis = professores.filter((p) => {
-    const texto = `${p.nome} ${p.disciplina}`.toLowerCase();
-    return texto.includes(busca.toLowerCase()) && (disciplina === '' || p.disciplina === disciplina);
+    const texto = `${p.nome} ${p.disciplina ?? ''}`.toLowerCase();
+    return texto.includes(busca.toLowerCase()) && (disciplina === '' || (p.disciplina ?? '').split(', ').includes(disciplina));
   });
 
-  function salvar(dados) {
-    setProfessores(professores.map((p) => (p.id === editando.id ? { ...p, ...dados } : p)));
+  async function salvar(dados) {
+    const atualizado = await admin.salvarProfessor(editando.id_professor, dados);
+    setProfessores(professores.map((p) => (p.id_professor === atualizado.id_professor ? atualizado : p)));
   }
 
-  function excluir(professor) {
+  async function excluir(professor) {
     if (!window.confirm(`Excluir o professor ${professor.nome}?`)) return;
-    setProfessores(professores.filter((p) => p.id !== professor.id));
+    try {
+      await admin.excluirProfessor(professor.id_professor);
+      setProfessores(professores.filter((p) => p.id_professor !== professor.id_professor));
+    } catch (e) {
+      window.alert(e.message);
+    }
   }
 
   return (
@@ -80,16 +93,16 @@ export default function Professores() {
           <tbody>
             {visiveis.map((p) => {
               const situacao = situacoes[p.situacao] ?? situacoes.novo;
-              const lembrado = lembrados.includes(p.id);
+              const lembrado = lembrados.includes(p.id_professor);
               const precisaLembrete = p.situacao === 'atrasado' || p.situacao === 'hoje';
               return (
-                <tr key={p.id}>
+                <tr key={p.id_professor}>
                   <td>
                     {p.nome}
                     {p.email && <small>{p.email}</small>}
                   </td>
-                  <td>{p.disciplina}</td>
-                  <td>{p.turmas}</td>
+                  <td>{p.disciplina || '–'}</td>
+                  <td>{nomesTurmas(p)}</td>
                   <td className="centro"><Etiqueta cor={situacao.cor}>{situacao.texto}</Etiqueta></td>
                   <td>
                     <div className="turma-botoes">
@@ -97,7 +110,7 @@ export default function Professores() {
                         <button
                           className="botao botao-pequeno botao-contorno"
                           disabled={lembrado}
-                          onClick={() => setLembrados([...lembrados, p.id])}
+                          onClick={() => setLembrados([...lembrados, p.id_professor])}
                         >
                           {lembrado ? 'Lembrete enviado' : 'Enviar lembrete'}
                         </button>
@@ -116,7 +129,7 @@ export default function Professores() {
             {visiveis.length === 0 && (
               <tr>
                 <td colSpan={5} className="dica">
-                  Nenhum professor encontrado. Confira a busca ou o filtro de disciplina.
+                  {carregando ? 'Carregando professores…' : erro || 'Nenhum professor encontrado. Confira a busca ou o filtro de disciplina.'}
                 </td>
               </tr>
             )}
@@ -126,7 +139,7 @@ export default function Professores() {
 
       {editando && (
         <EditarProfessor
-          key={editando.id}
+          key={editando.id_professor}
           professor={editando}
           disciplinas={disciplinas}
           turmas={turmas}

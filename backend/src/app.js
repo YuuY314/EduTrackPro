@@ -12,6 +12,7 @@ import { errorHandler, notFound } from './middlewares/errorHandler.js';
 import { authRouter } from './routes/AuthRoutes.js';
 
 import { administradorRouter } from './routes/AdministradorRoutes.js';
+import { adminRouter } from './routes/AdminRoutes.js';
 import { alunoRouter } from './routes/AlunoRoutes.js';
 import { aulaRouter } from './routes/AulaRoutes.js';
 import { avaliacaoRouter } from './routes/AvaliacaoRoutes.js';
@@ -49,6 +50,7 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/auth', authRouter);
 
 app.use('/api/administrador', administradorRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/aluno', alunoRouter);
 app.use('/api/aula', aulaRouter);
 app.use('/api/avaliacao', avaliacaoRouter);

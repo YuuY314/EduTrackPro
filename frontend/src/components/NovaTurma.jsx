@@ -8,12 +8,14 @@ const SERIES = ['1', '2', '3'];
 const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const TURNOS = ['Manhã', 'Tarde', 'Noite'];
 
-const vazio = { serie: '', letra: '', turno: '', sala: '' };
+const vazio = { serie: '', letra: '', turno: '', ano: String(new Date().getFullYear()) };
 
 export default function NovaTurma({ turmas, onSalvar, onFechar }) {
   const [form, setForm] = useState(vazio);
   const [erros, setErros] = useState({});
   const [fechando, setFechando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     const overflow = document.body.style.overflow;
@@ -44,31 +46,28 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
     if (!form.serie) e.serie = 'Selecione a série';
     if (!form.letra) e.letra = 'Selecione a letra';
     if (!form.turno) e.turno = 'Selecione o turno';
-    if (!form.sala.trim()) e.sala = 'Informe a sala';
-    if (form.serie && form.letra && turmas.some((t) => t.id === `${form.serie}${form.letra}`)) {
+    if (!/^\d{4}$/.test(form.ano)) e.ano = 'Informe um ano válido';
+    if (form.serie && form.letra && turmas.some((t) => t.nomeCurto === `${form.serie}${form.letra}` && String(t.ano_letivo) === form.ano)) {
       e.letra = `A ${nome} já existe`;
     }
     return e;
   }
 
-  function salvar(evento) {
+  async function salvar(evento) {
     evento.preventDefault();
     const encontrados = validar();
     setErros(encontrados);
     if (Object.keys(encontrados).length) return;
 
-    const sala = form.sala.trim();
-    onSalvar({
-      id: `${form.serie}${form.letra}`,
-      nome,
-      turno: form.turno,
-      sala: /^sala/i.test(sala) ? sala : `Sala ${sala}`,
-      alunos: 0,
-      media: null,
-      presenca: null,
-      semProfessor: 0,
-    });
-    fechar();
+    setSalvando(true);
+    setErroEnvio('');
+    try {
+      await onSalvar({ nome: `${form.serie}${form.letra}`, periodo: form.turno, ano_letivo: Number(form.ano) });
+      fechar();
+    } catch (err) {
+      setErroEnvio(err.message);
+      setSalvando(false);
+    }
   }
 
   return (
@@ -121,7 +120,7 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
           </section>
 
           <section className={`${styles.secao} ${styles.atraso}`}>
-            <Titulo numero="2" titulo="Funcionamento" texto="Turno e sala onde a turma tem aula" />
+            <Titulo numero="2" titulo="Funcionamento" texto="Turno e ano letivo da turma" />
             <div className={styles.grid}>
               <Campo label="Turno" erro={erros.turno}>
                 <Selecao
@@ -131,16 +130,19 @@ export default function NovaTurma({ turmas, onSalvar, onFechar }) {
                   opcoes={TURNOS.map((t) => ({ value: t, label: t }))}
                 />
               </Campo>
-              <Campo label="Sala" erro={erros.sala}>
-                <input value={form.sala} onChange={alterar('sala')} placeholder="Ex.: 12" maxLength={20} />
+              <Campo label="Ano letivo" erro={erros.ano}>
+                <input value={form.ano} onChange={alterar('ano')} inputMode="numeric" maxLength={4} placeholder="2026" />
               </Campo>
             </div>
           </section>
         </div>
 
         <footer className={styles.rodape}>
+          {erroEnvio && <span className={styles.erro} role="alert">{erroEnvio}</span>}
           <button type="button" className={styles.btnSecundario} onClick={fechar}>Cancelar</button>
-          <button type="submit" className={styles.btnPrimario}>Adicionar turma</button>
+          <button type="submit" className={styles.btnPrimario} disabled={salvando}>
+            {salvando ? 'Salvando…' : 'Adicionar turma'}
+          </button>
         </footer>
       </form>
     </div>
