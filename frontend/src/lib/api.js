@@ -440,6 +440,7 @@ export async function listarAlunosAdmin() {
 }
 
 //alterações no banco dos dados do aluno e seus responsaveis
+//alterações no banco dos dados do aluno e seus responsaveis
 export async function atualizarAlunoAdmin(idAluno, idResponsavel, dados) {
   const { responsavelDados, ...camposAluno } = dados;
 
@@ -462,12 +463,12 @@ export async function atualizarAlunoAdmin(idAluno, idResponsavel, dados) {
         metodo: 'PUT',
         corpo: {
           nome: responsavelDados.nome,
-          cpf: responsavelDados.cpf || undefined,
-          parentesco: responsavelDados.parentesco || undefined,
-          telefone: responsavelDados.telefone || undefined,
-          email: responsavelDados.email || undefined,
+          cpf: responsavelDados.cpf || '000.000.000-00',
+          parentesco: responsavelDados.parentesco || 'Outro',
+          telefone: responsavelDados.telefone || '(00) 00000-0000',
+          email: responsavelDados.email || null,
         },
-      }).catch(() => null)
+      })
     );
   }
 
