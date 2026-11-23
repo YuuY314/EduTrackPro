@@ -198,6 +198,23 @@ CREATE TABLE administradores (
   CONSTRAINT fk_admin_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
 ) ENGINE=InnoDB;
 
+CREATE TABLE calendario_eventos (
+  id_evento     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_professor  INT UNSIGNED NULL,          -- NULL quando criado direto pela administração
+  id_turma      INT UNSIGNED NULL,          -- NULL = todas as turmas
+  data          DATE NOT NULL,
+  tipo          ENUM('Letivo','Dia não letivo','Reunião de pais/responsáveis','Avaliação','Feriado') NOT NULL,
+  descricao     VARCHAR(255) NULL,
+  status        ENUM('pendente','confirmada','recusada') NOT NULL DEFAULT 'confirmada',
+  motivo        VARCHAR(255) NULL,
+  criado_em     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_evento),
+  KEY idx_cal_data (data),
+  KEY idx_cal_status (status),
+  CONSTRAINT fk_cal_professor FOREIGN KEY (id_professor) REFERENCES professores (id_professor) ON DELETE SET NULL,
+  CONSTRAINT fk_cal_turma     FOREIGN KEY (id_turma)     REFERENCES turmas (id_turma)           ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- =====================================================================
 -- 2) DADOS DE TESTE
 -- =====================================================================
@@ -421,6 +438,12 @@ INSERT INTO avisos (id_autor, id_turma, titulo, texto, data_publicacao) VALUES
 (32, 1,    'Reunião de pais e responsáveis',    'Reunião do 3º bimestre da turma 3A na segunda, 26/10, às 19h.',   '2026-10-20 10:30:00'),
 (2,  1,    'Prova de Matemática',               'Revisão de funções e logaritmos na próxima semana.',              '2026-10-21 14:00:00');
 
+-- ---- calendario ---------------------------------
+INSERT INTO calendario_eventos (id_professor, id_turma, data, tipo, descricao, status) VALUES
+(NULL, NULL, '2026-11-20', 'Feriado',                      'Dia da Consciência Negra',                  'confirmada'),
+(NULL, 1,    '2026-11-24', 'Reunião de pais/responsáveis', 'Reunião do 4º bimestre da turma 3A às 19h', 'confirmada'),
+(2,    1,    '2026-11-27', 'Avaliação',                    'Prova de funções exponenciais e logaritmos', 'pendente');
+
 -- =====================================================================
 -- 3) VIEWS ÚTEIS (boletim e faltas calculados, nunca guardados)
 -- =====================================================================
@@ -447,6 +470,49 @@ SELECT a.id_aluno,
 FROM frequencias f
 JOIN alunos a ON a.id_aluno = f.id_aluno
 GROUP BY a.id_aluno, a.nome;
+
+
+-- 1. Cria o usuário do aluno (senha: 123456)
+INSERT INTO usuarios (id_usuario, email, senha_hash, perfil) VALUES
+(900000012, 'gabrieloyama14@gmail.com', '$2b$10$aSo/wxtD/KZIP7QibhqkUOfyutmrs9fhKUbcHPv1QRZDbZiEPeAuO', 'aluno');
+
+-- 2. Insere o aluno vinculado ao usuário, turma 1 e responsável 1
+INSERT INTO alunos (
+    id_aluno,
+    id_usuario,
+    id_turma,
+    id_responsavel,
+    matricula,
+    nome,
+    cpf,
+    endereco,
+    email_institucional
+) VALUES (
+    900000001,
+    900000012,
+    1,
+    1,
+    '20269A900',
+    'Gabriel Oyama',
+    '900.000.001-90',
+    'Endereço de teste',
+    'gabrieloyama14@gmail.com'
+);
+
+-- 3. Popula as frequências para todas as aulas existentes
+INSERT INTO frequencias (id_aula, id_aluno, presente, justificativa)
+SELECT au.id_aula,
+       900000001,
+       (MOD(900000001 * 3 + au.id_aula, 11) <> 0),
+       NULL
+FROM aulas au;
+
+-- 4. Popula as notas para todas as avaliações existentes
+INSERT INTO notas (id_avaliacao, id_aluno, valor)
+SELECT av.id_avaliacao,
+       900000001,
+       ROUND(5 + MOD(900000001 * 7 + av.id_avaliacao * 3, 50) / 10, 1)
+FROM avaliacoes av;
 
 -- =====================================================================
 -- 4) CONSULTAS DE EXEMPLO

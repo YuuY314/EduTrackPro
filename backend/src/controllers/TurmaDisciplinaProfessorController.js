@@ -24,6 +24,18 @@ export async function listar(req, res, next) {
   }
 }
 
+export async function listarPorProfessor(req, res, next) {
+  try {
+    const turmas = await TurmaDisciplinaProfessorService.listarPorProfessor(req.params.idProfessor);
+    return res.status(200).json({
+      sucesso: true,
+      dados: turmas
+    });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
+
 export async function buscarPorId(req, res, next) {
   try {
     const turma_disciplina_professor = await TurmaDisciplinaProfessorService

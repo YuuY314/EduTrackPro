@@ -16,6 +16,7 @@ import { alunoRouter } from './routes/AlunoRoutes.js';
 import { aulaRouter } from './routes/AulaRoutes.js';
 import { avaliacaoRouter } from './routes/AvaliacaoRoutes.js';
 import { avisoRouter } from './routes/AvisoRoutes.js';
+import { calendarioEventoRouter } from './routes/CalendarioEventoRoutes.js';
 import { disciplinaRouter } from './routes/DisciplinaRoutes.js';
 import { frequenciaRouter } from './routes/FrequenciaRoutes.js';
 import { horarioAulaRouter } from './routes/HorarioAulaRoutes.js';
@@ -29,6 +30,9 @@ import { viewBoletimRouter } from './routes/ViewBoletimRoutes.js';
 import { viewFaltasAlunoRouter } from './routes/ViewFaltasAlunoRoutes.js';
 
 import { gmailAPIRouter } from './routes/GmailAPIRoutes.js';
+
+import sophosAiRoutes from './routes/SophosAiRoutes.js';
+
 
 export const app = express();
 
@@ -49,6 +53,7 @@ app.use('/api/aluno', alunoRouter);
 app.use('/api/aula', aulaRouter);
 app.use('/api/avaliacao', avaliacaoRouter);
 app.use('/api/aviso', avisoRouter);
+app.use('/api/calendario', calendarioEventoRouter);
 app.use('/api/disciplina', disciplinaRouter);
 app.use('/api/frequencia', frequenciaRouter);
 app.use('/api/horario_aula', horarioAulaRouter);
@@ -58,6 +63,7 @@ app.use('/api/responsavel', responsavelRouter);
 app.use('/api/tarefa', tarefaRouter);
 app.use('/api/turma_disciplina_professor', turma_disciplina_professorRouter);
 app.use('/api/turma', turmaRouter);
+app.use('/api/sophos-ai', sophosAiRoutes);
 
 app.use('/api/boletim', viewBoletimRouter);
 app.use('/api/faltas_aluno', viewFaltasAlunoRouter);
