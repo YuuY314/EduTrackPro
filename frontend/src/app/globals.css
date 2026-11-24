@@ -1130,3 +1130,40 @@ td small {
   padding: 8px 0;
   margin: 12px 0;
 }
+
+/* Cartão de solicitações pendentes no calendário do admin */
+.solicitacoes-admin {
+  margin-bottom: 16px;
+}
+
+/* Campo de motivo que abre embaixo da solicitação ao clicar em Recusar */
+.recusa-motivo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  margin-top: 10px;
+}
+
+.recusa-motivo label {
+  flex-basis: 100%;
+  font-size: 0.85rem;
+}
+
+.recusa-motivo input {
+  flex: 1 1 240px;
+  padding: 6px 10px;
+  background: var(--cartao);
+  border: 1.5px solid var(--borda);
+  border-radius: 10px;
+}
+
+.recusa-motivo input:focus {
+  border-color: var(--azul-coruja);
+  outline: none;
+}
+
+.recusadas-titulo {
+  margin-top: 18px;
+}
