@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import EditarAluno from '@/src/components/EditarAluno';
 import Selecao from '@/src/components/Selecao';
-import { alunosDaEscola, turmas } from '@/src/lib/dados';
+import { admin } from '@/src/lib/api';
 
 function Situacao({ presenca }) {
   if (presenca === null) return <Etiqueta cor="vazio">Novo</Etiqueta>;
@@ -14,23 +14,39 @@ function Situacao({ presenca }) {
 }
 
 export default function Alunos() {
-  const [alunos, setAlunos] = useState(alunosDaEscola);
+  const [alunos, setAlunos] = useState([]);
+  const [turmas, setTurmas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
   const [busca, setBusca] = useState('');
   const [turno, setTurno] = useState('');
   const [editando, setEditando] = useState(null);
+
+  useEffect(() => {
+    Promise.all([admin.alunos(), admin.turmas()])
+      .then(([a, t]) => { setAlunos(a); setTurmas(t); })
+      .catch((e) => setErro(e.message))
+      .finally(() => setCarregando(false));
+  }, []);
 
   const visiveis = alunos.filter((a) => {
     const texto = `${a.nome} ${a.matricula}`.toLowerCase();
     return texto.includes(busca.toLowerCase()) && (turno === '' || a.turno === turno);
   });
 
-  function salvar(dados) {
-    setAlunos(alunos.map((a) => (a.matricula === editando.matricula ? { ...a, ...dados } : a)));
+  async function salvar(dados) {
+    const atualizado = await admin.salvarAluno(editando.id_aluno, dados);
+    setAlunos(alunos.map((a) => (a.id_aluno === atualizado.id_aluno ? atualizado : a)));
   }
 
-  function excluir(aluno) {
+  async function excluir(aluno) {
     if (!window.confirm(`Excluir o aluno ${aluno.nome} (${aluno.matricula})?`)) return;
-    setAlunos(alunos.filter((a) => a.matricula !== aluno.matricula));
+    try {
+      await admin.excluirAluno(aluno.id_aluno);
+      setAlunos(alunos.filter((a) => a.id_aluno !== aluno.id_aluno));
+    } catch (e) {
+      window.alert(e.message);
+    }
   }
 
   return (
@@ -72,7 +88,7 @@ export default function Alunos() {
           </thead>
           <tbody>
             {visiveis.map((a) => (
-              <tr key={a.matricula}>
+              <tr key={a.id_aluno}>
                 <td>{a.matricula}</td>
                 <td>
                   {a.nome}
@@ -96,7 +112,7 @@ export default function Alunos() {
             {visiveis.length === 0 && (
               <tr>
                 <td colSpan={6} className="dica">
-                  Nenhum aluno encontrado. Confira a busca ou o filtro de turno.
+                  {carregando ? 'Carregando alunos…' : erro || 'Nenhum aluno encontrado. Confira a busca ou o filtro de turno.'}
                 </td>
               </tr>
             )}
@@ -106,7 +122,7 @@ export default function Alunos() {
 
       {editando && (
         <EditarAluno
-          key={editando.matricula}
+          key={editando.id_aluno}
           aluno={editando}
           turmas={turmas}
           onSalvar={salvar}
