@@ -25,11 +25,14 @@ export default function Professores() {
   const [disciplina, setDisciplina] = useState('');
   const [editando, setEditando] = useState(null);
 
-  const disciplinas = [...new Set(professores.map((p) => p.disciplina))].sort();
+  const separar = (texto) => (texto ?? '').split(',').map((d) => d.trim()).filter(Boolean);
+  const disciplinas = [...new Set(professores.flatMap((p) => separar(p.disciplina)))].sort((a, b) =>
+    a.localeCompare(b, 'pt-BR')
+  );
 
   const visiveis = professores.filter((p) => {
     const texto = `${p.nome} ${p.disciplina}`.toLowerCase();
-    return texto.includes(busca.toLowerCase()) && (disciplina === '' || p.disciplina === disciplina);
+    return texto.includes(busca.toLowerCase()) && (disciplina === '' || separar(p.disciplina).includes(disciplina));
   });
 
   function salvar(dados) {

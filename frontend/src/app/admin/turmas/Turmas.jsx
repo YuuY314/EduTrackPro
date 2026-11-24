@@ -3,16 +3,22 @@
 import { useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import NovaTurma from '@/src/components/NovaTurma';
+import GerenciarTurma from '@/src/components/GerenciarTurma';
 import { turmas as turmasIniciais } from '@/src/lib/dados';
 
 export default function Turmas() {
   const [turmas, setTurmas] = useState(turmasIniciais);
   const [adicionando, setAdicionando] = useState(false);
   const [nova, setNova] = useState(null);
+  const [gerenciando, setGerenciando] = useState(null);
 
   function adicionar(turma) {
     setTurmas([...turmas, turma]);
     setNova(turma.id);
+  }
+
+  function atualizar(dados) {
+    setTurmas(turmas.map((t) => (t.id === gerenciando.id ? dados : t)));
   }
 
   return (
@@ -46,7 +52,11 @@ export default function Turmas() {
                 <td className="centro">
                   <Etiqueta cor={t.semProfessor ? 'atencao' : 'bom'}>{t.semProfessor}</Etiqueta>
                 </td>
-                <td><button className="botao botao-pequeno botao-contorno">Gerenciar</button></td>
+                <td>
+                  <button className="botao botao-pequeno botao-contorno" onClick={() => setGerenciando(t)}>
+                    Gerenciar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -55,6 +65,16 @@ export default function Turmas() {
 
       {adicionando && (
         <NovaTurma turmas={turmas} onSalvar={adicionar} onFechar={() => setAdicionando(false)} />
+      )}
+
+      {gerenciando && (
+        <GerenciarTurma
+          key={gerenciando.id}
+          turma={gerenciando}
+          turmas={turmas}
+          onSalvar={atualizar}
+          onFechar={() => setGerenciando(null)}
+        />
       )}
     </>
   );

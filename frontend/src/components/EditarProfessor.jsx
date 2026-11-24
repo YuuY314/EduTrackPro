@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import styles from './EditarAluno.module.css';
 import Selecao from './Selecao';
+import SecaoHorarios, { limparHorarios } from './SecaoHorarios';
 
 function mascaraCpf(valor) {
   const d = valor.replace(/\D/g, '').slice(0, 11);
@@ -26,6 +27,8 @@ const telefoneValido = (v) => v.replace(/\D/g, '').length >= 10;
 
 const nomeCurto = (turma) => turma.nome.replace(' Série', '');
 
+const separar = (texto) => (texto ?? '').split(',').map((d) => d.trim()).filter(Boolean);
+
 function turmasSelecionadas(texto, turmas) {
   const nomes = (texto ?? '').split(',').map((n) => n.trim());
   return turmas.filter((t) => nomes.includes(nomeCurto(t)) || nomes.includes(t.nome)).map((t) => t.id);
@@ -37,7 +40,7 @@ function montarForm(professor, turmas) {
     cpf: professor.cpf ?? '',
     telefone: professor.telefone ?? '',
     email: professor.email ?? '',
-    disciplina: professor.disciplina ?? '',
+    disciplinas: separar(professor.disciplina),
     turmas: turmasSelecionadas(professor.turmas, turmas),
   };
 }
@@ -45,6 +48,7 @@ function montarForm(professor, turmas) {
 export default function EditarProfessor({ professor, disciplinas, turmas, onSalvar, onFechar }) {
   const [form, setForm] = useState(() => montarForm(professor, turmas));
   const [erros, setErros] = useState({});
+  const [horarios, setHorarios] = useState(professor.horarios ?? []);
   const [fechando, setFechando] = useState(false);
 
   useEffect(() => {
@@ -79,7 +83,7 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
     if (form.cpf && !cpfValido(form.cpf)) e.cpf = 'CPF incompleto';
     if (form.telefone && !telefoneValido(form.telefone)) e.telefone = 'Telefone incompleto';
     if (form.email && !emailValido(form.email)) e.email = 'Email inválido';
-    if (!form.disciplina.trim()) e.disciplina = 'Informe a disciplina';
+    if (!form.disciplinas.length) e.disciplina = 'Selecione ao menos uma disciplina';
     return e;
   }
 
@@ -94,8 +98,9 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
       cpf: form.cpf,
       telefone: form.telefone,
       email: form.email.trim(),
-      disciplina: form.disciplina.trim(),
+      disciplina: disciplinas.filter((d) => form.disciplinas.includes(d)).join(', '),
       turmas: turmas.filter((t) => form.turmas.includes(t.id)).map(nomeCurto).join(', ') || '–',
+      horarios: limparHorarios(horarios),
     });
     fechar();
   }
@@ -162,18 +167,15 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
           <section className={`${styles.secao} ${styles.atraso}`}>
             <Titulo numero="2" titulo="Aulas" texto="Disciplina e turmas atendidas" />
             <div className={styles.grid}>
-              <Campo label="Disciplina" erro={erros.disciplina}>
-                <input
-                  list="editar-lista-disciplinas"
-                  value={form.disciplina}
-                  onChange={alterar('disciplina')}
-                  placeholder="Ex.: Matemática"
+              <Campo label="Disciplinas" erro={erros.disciplina}>
+                <Selecao
+                  multiplo
+                  value={form.disciplinas}
+                  onChange={alterar('disciplinas')}
+                  placeholder="Selecione as disciplinas"
+                  erro={Boolean(erros.disciplina)}
+                  opcoes={disciplinas.map((d) => ({ value: d, label: d }))}
                 />
-                <datalist id="editar-lista-disciplinas">
-                  {disciplinas.map((d) => (
-                    <option key={d} value={d} />
-                  ))}
-                </datalist>
               </Campo>
               <Campo label="Turmas">
                 <Selecao
@@ -186,6 +188,8 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
               </Campo>
             </div>
           </section>
+
+          <SecaoHorarios turmas={turmas} selecionadas={form.turmas} value={horarios} onChange={setHorarios} />
         </div>
 
         <footer className={styles.rodape}>
