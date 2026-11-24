@@ -791,3 +791,42 @@ export async function excluirTurmaAdmin(idTurma) {
     metodo: 'DELETE',
   });
 }
+
+// ---------- Admin: dados vindos do banco (via /api/admin) ----------
+
+// "3A" -> "3ª Série A"
+export const nomeTurma = (nome = '') =>
+  /^\d[A-Za-z]$/.test(nome) ? `${nome[0]}ª Série ${nome[1].toUpperCase()}` : nome;
+
+const turmaParaTela = (t) => ({
+  ...t,
+  id: t.id_turma,
+  nome: nomeTurma(t.nome),
+  nomeCurto: t.nome,
+  turno: t.periodo,
+  semProfessor: Math.max(Number(t.sem_professor) || 0, 0),
+  alunos: Number(t.alunos) || 0,
+});
+
+const alunoParaTela = (a) => ({
+  ...a,
+  turma: nomeTurma(a.turma),
+  presenca: a.presenca === null || a.presenca === undefined ? null : Number(a.presenca),
+});
+
+export const admin = {
+  resumo: () => api('/admin/resumo'),
+  turmas: async () => (await api('/admin/turmas')).map(turmaParaTela),
+  criarTurma: async (corpo) => turmaParaTela(await api('/admin/turmas', { metodo: 'POST', corpo })),
+  responsaveis: () => api('/admin/responsaveis'),
+  alunos: async () => (await api('/admin/alunos')).map(alunoParaTela),
+  criarAluno: (corpo) => api('/admin/alunos', { metodo: 'POST', corpo }),
+  salvarAluno: async (id, corpo) =>
+    alunoParaTela(await api(`/admin/alunos/${id}`, { metodo: 'PUT', corpo })),
+  excluirAluno: (id) => api(`/admin/alunos/${id}`, { metodo: 'DELETE' }),
+  professores: () => api('/admin/professores'),
+  criarProfessor: (corpo) => api('/admin/professores', { metodo: 'POST', corpo }),
+  salvarProfessor: (id, corpo) => api(`/admin/professores/${id}`, { metodo: 'PUT', corpo }),
+  excluirProfessor: (id) => api(`/admin/professores/${id}`, { metodo: 'DELETE' }),
+  criarAdministrador: (corpo) => api('/admin/administradores', { metodo: 'POST', corpo }),
+};

@@ -181,9 +181,10 @@ export default function Notas() {
               const idOpcao = t.id_tdp || t.id;
               const nomeTurma = t.turma || t.nome_turma || t.nome || 'Turma';
               const turnoTurma = t.turno || t.periodo || '';
+              const materia = t.disciplina || t.nome_disciplina || '';
               return (
                 <option key={idOpcao} value={idOpcao}>
-                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}
+                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}{materia ? ` — ${materia}` : ''}
                 </option>
               );
             })}
