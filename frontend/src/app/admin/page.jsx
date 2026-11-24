@@ -1,51 +1,55 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import CartaoNumero from '@/src/components/CartaoNumero';
 import ListaItem from '@/src/components/ListaItem';
 import Etiqueta from '@/src/components/Etiqueta';
 import TesteEmail from '@/src/components/TesteEmail';
-
-export const metadata = { title: 'Painel · EduTrackPro' };
+import { admin, nomeTurma } from '@/src/lib/api';
 
 export default function Painel() {
+  const [r, setR] = useState(null);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    admin.resumo().then(setR).catch((e) => setErro(e.message));
+  }, []);
+
+  const n = (v) => (r ? String(v ?? '–') : '…');
+
   return (
     <>
       <div className="grade-4">
-        <CartaoNumero numero="1.248" texto="Alunos matriculados" href="/admin/alunos" />
-        <CartaoNumero numero="91%" texto="Frequência média da escola" />
-        <CartaoNumero numero="7" texto="Turmas com nota pendente" href="/admin/professores" alerta />
-        <CartaoNumero numero="64" texto="Professores" href="/admin/professores" />
+        <CartaoNumero numero={n(r?.alunos)} texto="Alunos matriculados" href="/admin/alunos" />
+        <CartaoNumero numero={r ? (r.frequenciaMedia === null ? '–' : `${r.frequenciaMedia}%`) : '…'} texto="Frequência média da escola" />
+        <CartaoNumero numero={n(r?.turmasPendentes)} texto="Turmas com nota pendente" href="/admin/professores" alerta />
+        <CartaoNumero numero={n(r?.professores)} texto="Professores" href="/admin/professores" />
       </div>
+
+      {erro && <p className="dica">{erro}</p>}
 
       <div className="grade-2">
         <div className="cartao cartao-conteudo">
           <h3>Alunos em risco de reprovação por falta</h3>
-          <ListaItem titulo="Eduarda Lima" detalhe="3ª Série E · Noite">
-            <Etiqueta cor="ruim">68%</Etiqueta>
-          </ListaItem>
-          <ListaItem titulo="Thiago Nunes" detalhe="1ª Série C · Tarde">
-            <Etiqueta cor="ruim">70%</Etiqueta>
-          </ListaItem>
-          <ListaItem titulo="Felipe Rocha" detalhe="3ª Série E · Noite">
-            <Etiqueta cor="atencao">73%</Etiqueta>
-          </ListaItem>
-          <ListaItem titulo="Marina Duarte" detalhe="2ª Série B · Manhã">
-            <Etiqueta cor="atencao">74%</Etiqueta>
-          </ListaItem>
+          {r?.alunosRisco.map((a) => (
+            <ListaItem key={a.id_aluno} titulo={a.nome} detalhe={`${nomeTurma(a.turma)} · ${a.turno}`}>
+              <Etiqueta cor={a.presenca < 70 ? 'ruim' : 'atencao'}>{a.presenca}%</Etiqueta>
+            </ListaItem>
+          ))}
+          {r?.alunosRisco.length === 0 && <p className="dica">Nenhum aluno abaixo de 75%.</p>}
         </div>
 
         <div className="cartao cartao-conteudo">
           <h3>Lançamentos atrasados</h3>
-          <ListaItem titulo="Prof. Ricardo Lima" detalhe="Matemática · 2 turmas">
-            <Etiqueta cor="ruim">Atrasado</Etiqueta>
-          </ListaItem>
-          <ListaItem titulo="Profa. Camila Torres" detalhe="Química · 3 turmas">
-            <Etiqueta cor="ruim">Atrasado</Etiqueta>
-          </ListaItem>
-          <ListaItem titulo="Prof. André Souza" detalhe="História · 2 turmas">
-            <Etiqueta cor="atencao">Vence hoje</Etiqueta>
-          </ListaItem>
+          {r?.lancamentosAtrasados.map((p) => (
+            <ListaItem key={p.id_professor} titulo={`Prof. ${p.nome}`} detalhe={`${p.disciplina} · ${p.pendentes} turma(s) sem nota`}>
+              <Etiqueta cor="ruim">Atrasado</Etiqueta>
+            </ListaItem>
+          ))}
+          {r?.lancamentosAtrasados.length === 0 && <p className="dica">Nenhum lançamento atrasado.</p>}
         </div>
       </div>
-      
+
       <TesteEmail />
     </>
   );

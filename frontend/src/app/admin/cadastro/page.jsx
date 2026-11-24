@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import styles from "./cadastro.module.css";
-import { turmas } from "@/src/lib/dados";
+import { admin } from "@/src/lib/api";
 import Selecao from "@/src/components/Selecao";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const PERFIS = [
   { valor: "aluno", titulo: "Aluno", descricao: "Matrícula, turma e responsável", icone: "aluno" },
@@ -57,6 +56,7 @@ export default function CadastroPage() {
   const [responsavel, setResponsavel] = useState(responsavelInicial);
 
   const [responsaveis, setResponsaveis] = useState([]);
+  const [turmas, setTurmas] = useState([]);
   const [erroListas, setErroListas] = useState("");
 
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -66,8 +66,7 @@ export default function CadastroPage() {
 
   useEffect(() => {
     if (usuario.perfil !== "aluno" || responsaveis.length || erroListas) return;
-    fetch(`${API_URL}/responsaveis`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    admin.responsaveis()
       .then((r) => {
         setResponsaveis(r);
         if (!r.length) setModoResponsavel("novo");
@@ -77,6 +76,10 @@ export default function CadastroPage() {
         setModoResponsavel("novo");
       });
   }, [usuario.perfil, responsaveis.length, erroListas]);
+
+  useEffect(() => {
+    admin.turmas().then(setTurmas).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!aviso) return;
@@ -123,22 +126,19 @@ export default function CadastroPage() {
     return e;
   }
 
-  function montarDados() {
-    const dados = {
-      usuario: { email: usuario.email, senha: usuario.senha, perfil: usuario.perfil },
-    };
-    const dadosPessoa = { ...pessoa, email: emailPessoa };
-    if (usuario.perfil === "professor") dados.professor = dadosPessoa;
-    if (usuario.perfil === "admin") dados.administrador = dadosPessoa;
-    if (usuario.perfil === "aluno") {
-      dados.aluno = {
-        ...aluno,
-        id_turma: aluno.id_turma,
-        id_responsavel: modoResponsavel === "existente" ? Number(idResponsavel) : null,
-      };
-      if (modoResponsavel === "novo") dados.responsavel = responsavel;
-    }
-    return dados;
+  async function cadastrar() {
+    const { email, senha, perfil } = usuario;
+    const dadosPessoa = { ...pessoa, email: emailPessoa, senha };
+    if (perfil === "professor") return admin.criarProfessor(dadosPessoa);
+    if (perfil === "admin") return admin.criarAdministrador(dadosPessoa);
+    return admin.criarAluno({
+      ...aluno,
+      senha,
+      id_turma: Number(aluno.id_turma),
+      ...(modoResponsavel === "existente"
+        ? { id_responsavel: Number(idResponsavel) }
+        : { responsavel }),
+    });
   }
 
   function limpar() {
@@ -162,14 +162,8 @@ export default function CadastroPage() {
 
     setEnviando(true);
     try {
-      const resposta = await fetch(`${API_URL}/cadastro`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(montarDados()),
-      });
-      const corpo = await resposta.json().catch(() => ({}));
-      if (!resposta.ok) throw new Error(corpo.mensagem || "Não foi possível concluir o cadastro.");
-      setAviso({ tipo: "sucesso", texto: corpo.mensagem || "Cadastro realizado com sucesso!" });
+      await cadastrar();
+      setAviso({ tipo: "sucesso", texto: "Cadastro realizado com sucesso!" });
       limpar();
     } catch (err) {
       setAviso({ tipo: "erro", texto: err.message || "Erro de conexão com o servidor." });

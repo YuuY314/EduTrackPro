@@ -30,6 +30,7 @@ export default function NovaTurma({ turmas = [], turmaInicial = null, onSalvar, 
   const [erros, setErros] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [fechando, setFechando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState('');
 
   useEffect(() => {
     const overflow = document.body.style.overflow;

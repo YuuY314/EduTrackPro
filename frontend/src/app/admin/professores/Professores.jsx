@@ -201,7 +201,7 @@ export default function Professores() {
 
       {editando && (
         <EditarProfessor
-          key={editando.id}
+          key={editando.id_professor}
           professor={editando}
           disciplinas={disciplinas}
           turmas={turmas}
