@@ -305,6 +305,8 @@ export async function buscarDashboardProfessor() {
     if (notasPorTdp[i].length === 0) turmasSemNotaIds.add(Number(tdp.id_turma));
   });
 
+  const disciplinasUnicas = [...new Set(listaTdp.map((t) => t.disciplina).filter(Boolean))];
+
   return {
     bimestreAtual: bimestre,
     totalAulasHoje: aulasHoje.length,
@@ -313,7 +315,7 @@ export async function buscarDashboardProfessor() {
     totalBaixaFrequencia: alunosBaixaFrequencia.length,
     aulasHoje,
     alunosBaixaFrequencia,
-    disciplinaPrincipal: listaTdp[0]?.disciplina || 'suas turmas',
+    disciplinaPrincipal: disciplinasUnicas.length === 1 ? disciplinasUnicas[0] : 'suas turmas',
   };
 }
 
@@ -573,18 +575,28 @@ export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDis
     });
   }
 
-  // Separa múltiplas disciplinas e múltiplas turmas (ex.: "História, Geografia" e "3A, 2B")
+  // Separa múltiplas disciplinas (ex.: "História, Geografia")
   const nomesDisciplinasAlvo = (dados.disciplina || '')
     .split(',')
     .map((n) => n.trim())
     .filter((n) => n && n !== 'Sem disciplina');
 
-  const nomesTurmasAlvo = (dados.turmas || '')
-    .split(',')
-    .map((n) => n.trim())
-    .filter((n) => n && n !== '–');
+  // Aceita tanto array de IDs (dados.id_turmas) quanto string de nomes (dados.turmas)
+  const idsTurmasAlvo = new Set(
+    Array.isArray(dados.id_turmas)
+      ? dados.id_turmas.map(Number).filter((id) => Number.isInteger(id) && id > 0)
+      : turmasDisponiveis
+          .filter((t) =>
+            String(dados.turmas || '')
+              .split(',')
+              .map((n) => n.trim())
+              .filter((n) => n && n !== '–')
+              .includes(t.nome)
+          )
+          .map((t) => Number(t.id_turma ?? t.id))
+  );
 
-  if (nomesDisciplinasAlvo.length === 0 || nomesTurmasAlvo.length === 0) return;
+  if (nomesDisciplinasAlvo.length === 0 || idsTurmasAlvo.size === 0) return;
 
   // Garante que todas as disciplinas selecionadas existam no banco e coleta seus IDs
   const idsDisciplinasAlvo = new Set();
@@ -626,12 +638,6 @@ export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDis
 
     idsDisciplinasAlvo.add(Number(discObj.id));
   }
-
-  const idsTurmasAlvo = new Set(
-    turmasDisponiveis
-      .filter((t) => nomesTurmasAlvo.includes(t.nome))
-      .map((t) => Number(t.id_turma ?? t.id))
-  );
 
   const vinculosAtuais = professorAtual.vinculos || [];
 
@@ -796,4 +802,4 @@ export const admin = {
   salvarProfessor: (id, corpo) => api(`/admin/professores/${id}`, { metodo: 'PUT', corpo }),
   excluirProfessor: (id) => api(`/admin/professores/${id}`, { metodo: 'DELETE' }),
   criarAdministrador: (corpo) => api('/admin/administradores', { metodo: 'POST', corpo }),
-};
+};

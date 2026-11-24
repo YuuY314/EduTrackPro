@@ -62,7 +62,7 @@ export default function Selecao({
     if (!aberta) return;
     calcularPosicao();
     function atualizar(e) {
-      if (lista.current?.contains(e.target)) return;
+      if (e.target instanceof Node && lista.current?.contains(e.target)) return;
       calcularPosicao();
     }
     window.addEventListener('scroll', atualizar, true);
@@ -76,7 +76,7 @@ export default function Selecao({
   useEffect(() => {
     if (!aberta) return;
     function fora(e) {
-      if (!caixa.current?.contains(e.target) && !lista.current?.contains(e.target)) setAberta(false);
+      if (e.target instanceof Node && !caixa.current?.contains(e.target) && !lista.current?.contains(e.target)) setAberta(false);
     }
     document.addEventListener('mousedown', fora);
     return () => document.removeEventListener('mousedown', fora);
