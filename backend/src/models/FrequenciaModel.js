@@ -1,4 +1,6 @@
 import * as dbModule from '../config/database.js';
+import { AppError } from '../utils/AppError.js';
+import { garantirAlunosDaTdp } from '../utils/permissoes.js';
 
 // Suporta tanto o pool exportado diretamente quanto a fábrica criarPool()
 const pool = typeof dbModule.criarPool === 'function' ? dbModule.criarPool() : dbModule.pool;
@@ -62,18 +64,37 @@ export async function excluir(id) {
   return resultado.affectedRows > 0;
 }
 
-//somente para fazer leitura: verifica se já existe uma aula registrada para aquele dia e turma/disciplina/professor(id_tdp), caso o professor queira corrigir ou revisar a chamada
-export async function buscarChamada(id_tdp, data) {
-  const [aulas] = await pool.query(
+// Acha a aula daquele vínculo + data + horário.
+// - com id_horario: a aula daquele horário; se não houver, uma aula ANTIGA do
+//   mesmo dia ainda sem horário (criada antes da coluna id_horario existir)
+// - sem id_horario: a aula mais recente do dia (comportamento antigo; usado pelo painel)
+async function acharAula(db, id_tdp, data, id_horario) {
+  if (id_horario) {
+    const [doHorario] = await db.query(
+      'SELECT * FROM aulas WHERE id_tdp = ? AND data = ? AND id_horario = ? LIMIT 1',
+      [id_tdp, data, id_horario]
+    );
+    if (doHorario[0]) return doHorario[0];
+    const [semHorario] = await db.query(
+      'SELECT * FROM aulas WHERE id_tdp = ? AND data = ? AND id_horario IS NULL ORDER BY id_aula LIMIT 1',
+      [id_tdp, data]
+    );
+    return semHorario[0] ?? null;
+  }
+  const [linhas] = await db.query(
     'SELECT * FROM aulas WHERE id_tdp = ? AND data = ? ORDER BY id_aula DESC LIMIT 1',
     [id_tdp, data]
   );
+  return linhas[0] ?? null;
+}
 
-  if (aulas.length === 0) {
+//somente para fazer leitura: verifica se já existe uma aula registrada para aquele dia, turma/disciplina/professor(id_tdp) e horário, caso o professor queira corrigir ou revisar a chamada
+export async function buscarChamada(id_tdp, data, id_horario = null) {
+  const aula = await acharAula(pool, id_tdp, data, id_horario);
+  if (!aula) {
     return { aula: null, frequencias: [] };
   }
 
-  const aula = aulas[0];
   const [frequencias] = await pool.query(
     'SELECT id, id_aula, id_aluno, presente, justificativa FROM frequencias WHERE id_aula = ?',
     [aula.id_aula]
@@ -82,29 +103,41 @@ export async function buscarChamada(id_tdp, data) {
   return { aula, frequencias };
 }
 
-// Salva (cria ou atualiza) a aula e todas as frequências dos alunos em uma única operação, na tabela aulas o registro com seu id_aula original é mantido e apenas atualizado caso tenha mudado, já na tabela frequencias o registro ligado ao id_aula são removidos e substituidos pelos novos inserts da situação de cada aluno
-export async function salvarChamadaCompleta({ id_tdp, data, conteudo, registros }) {
+// Salva (cria ou atualiza) a aula daquele horário e todas as frequências dos alunos em uma única operação.
+// Cada horário do dia tem a sua aula (aula dupla = 2 aulas = 2 chamadas). O registro de aulas é mantido e só
+// atualizado; as frequências daquela aula são apagadas e gravadas de novo com a situação de cada aluno.
+// "conteudo" só é alterado se vier na requisição (não apaga o conteúdo já registrado da aula).
+export async function salvarChamadaCompleta({ id_tdp, id_horario = null, data, conteudo, registros }) {
   const conexao = await pool.getConnection();
   try {
     await conexao.beginTransaction();
 
-    const [existentes] = await conexao.query(
-      'SELECT id_aula FROM aulas WHERE id_tdp = ? AND data = ? ORDER BY id_aula DESC LIMIT 1',
-      [id_tdp, data]
-    );
+    await garantirAlunosDaTdp(id_tdp, registros.map((r) => r.id_aluno), conexao);
+
+    if (id_horario) {
+      const [horario] = await conexao.query(
+        'SELECT id FROM horarios_aula WHERE id = ? AND id_tdp = ?',
+        [id_horario, id_tdp]
+      );
+      if (!horario[0]) {
+        throw new AppError('Esse horário não pertence a essa turma/disciplina.', 422);
+      }
+    }
+
+    const existente = await acharAula(conexao, id_tdp, data, id_horario);
 
     let id_aula;
-    if (existentes.length > 0) {
-      id_aula = existentes[0].id_aula;
+    if (existente) {
+      id_aula = existente.id_aula;
       await conexao.query(
-        'UPDATE aulas SET conteudo = ? WHERE id_aula = ?',
-        [conteudo || null, id_aula]
+        'UPDATE aulas SET id_horario = COALESCE(?, id_horario), conteudo = IF(?, ?, conteudo) WHERE id_aula = ?',
+        [id_horario, conteudo !== undefined, conteudo || null, id_aula]
       );
       await conexao.query('DELETE FROM frequencias WHERE id_aula = ?', [id_aula]);
     } else {
       const [resAula] = await conexao.query(
-        'INSERT INTO aulas (id_tdp, data, conteudo) VALUES (?, ?, ?)',
-        [id_tdp, data, conteudo || null]
+        'INSERT INTO aulas (id_tdp, id_horario, data, conteudo) VALUES (?, ?, ?, ?)',
+        [id_tdp, id_horario, data, conteudo || null]
       );
       id_aula = resAula.insertId;
     }
@@ -138,4 +171,4 @@ export async function listarHorariosPorTdp(id_tdp) {
     [id_tdp]
   );
   return linhas;
-}
+}

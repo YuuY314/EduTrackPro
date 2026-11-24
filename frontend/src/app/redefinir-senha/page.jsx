@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { redefinirSenha } from '@/src/lib/api';
 import '../login/login.css';
 
-const TAMANHO_MINIMO = 6;
+const TAMANHO_MINIMO = 8; // mesmo mínimo do cadastro e do backend
 
 export default function RedefinirSenhaPage() {
   const [senha, setSenha] = useState('');

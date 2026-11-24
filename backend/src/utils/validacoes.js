@@ -62,3 +62,12 @@ export function lerPaginacao({ pagina = 1, limite = 10 } = {}) {
 export function montarPaginacao({ pagina, limite }, total) {
   return { pagina, limite, total, totalPaginas: Math.ceil(total / limite) };
 }
+
+// Mesmo mínimo da tela de cadastro e da redefinição de senha.
+export const SENHA_MINIMA = 8;
+export function validarSenha(senha) {
+  if (typeof senha !== 'string' || senha.length < SENHA_MINIMA) {
+    throw new AppError(`A senha deve ter pelo menos ${SENHA_MINIMA} caracteres.`, 400);
+  }
+  return senha;
+}

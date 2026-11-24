@@ -1,23 +1,20 @@
-import express from 'express';
+// =====================================================================
+// routes/AvisoRoutes.js - /api/aviso
+// Todos os perfis logados leem; só a equipe publica; só admin apaga.
+// =====================================================================
+
+import { Router } from 'express';
 import * as AvisoController from '../controllers/AvisoController.js';
-// import { uploadImagem } from '../middlewares/UploadMiddleware.js';
+import { autenticar, exigirPerfil } from '../middlewares/autenticar.js';
 
-// Middlewares de autenticação (serão ativados na Sessão 2)
-// Inicialmente passam direto para não travar a Sessão 1
-let autenticar = (_req, _res, next) => next();
-let autorizarAdmin = (_req, _res, next) => next();
+export const avisoRouter = Router();
+avisoRouter.use(autenticar);
 
-export const avisoRouter = express.Router();
+const equipe = exigirPerfil('admin', 'professor');
+const somenteAdmin = exigirPerfil('admin');
 
 avisoRouter.get('/', AvisoController.listar);
 avisoRouter.get('/:id', AvisoController.buscarPorId);
-avisoRouter.post('/', (req, res, next) => autenticar(req, res, next), AvisoController.criar);
-avisoRouter.put('/:id', (req, res, next) => autenticar(req, res, next), AvisoController.atualizar);
-// avisoRouter.patch('/:id/imagem', (req, res, next) => autenticar(req, res, next), uploadImagem, AvisoController.enviarImagem);
-avisoRouter.delete('/:id', (req, res, next) => autenticar(req, res, next), (req, res, next) => autorizarAdmin(req, res, next), AvisoController.excluir);
-
-export function configurarSegurancaAvisos(middlewareAuth, middlewareAdmin) {
-  // Substitui os middlewares provisórios da Sessão 1 pelos middlewares reais.
-  if (middlewareAuth) autenticar = middlewareAuth;
-  if (middlewareAdmin) autorizarAdmin = middlewareAdmin;
-}
+avisoRouter.post('/', equipe, AvisoController.criar);
+avisoRouter.put('/:id', equipe, AvisoController.atualizar);
+avisoRouter.delete('/:id', somenteAdmin, AvisoController.excluir);

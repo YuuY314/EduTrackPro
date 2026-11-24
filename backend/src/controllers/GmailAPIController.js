@@ -31,28 +31,5 @@ export async function enviar(req, res, next) {
     }
 }
 
-export async function enviarRecuperacao(req, res, next) {
-    try {
-        const { to, nome, token } = req.body;
-
-        if (!to || !nome || !token) {
-            return res.status(400).json({
-                erro: 'E-mail, nome e token são obrigatórios.'
-            });
-        }
-
-        const resultado = await GmailAPIService.enviarEmailRecuperacao({
-            to,
-            nome,
-            token
-        });
-
-        return res.status(200).json({
-            mensagem: 'E-mail de recuperação enviado com sucesso!',
-            resultado
-        });
-
-    } catch (erro) {
-        return responderErro(erro, res, next);
-    }
-}
+// A recuperação de senha é feita por POST /api/auth/recuperar-senha
+// (AuthService), que só envia para o e-mail cadastrado da conta.

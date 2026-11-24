@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { api,  lerSessao } from '@/src/lib/api';
+import { api, lerSessao, listarTodos } from '@/src/lib/api';
+import { hojeLocalISO } from '@/src/lib/utils';
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -19,10 +20,11 @@ export default function Chamada() {
 
   const [turmasProf, setTurmasProf] = useState([]);
   const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
-  const [dataAula, setDataAula] = useState(() => new Date().toISOString().split('T')[0]);
+  // data local (toISOString usaria UTC e, depois das 21h, mostraria o dia seguinte)
+  const [dataAula, setDataAula] = useState(() => hojeLocalISO());
   const [horariosTdp, setHorariosTdp] = useState([]);
+  // id do horário da grade (horarios_aula.id): cada horário do dia tem a sua chamada
   const [aulaSelecionada, setAulaSelecionada] = useState('');
-
   const [alunos, setAlunos] = useState([]);
   const [faltasIds, setFaltasIds] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -75,47 +77,50 @@ export default function Chamada() {
     if (horariosTdp.length === 0) return [];
     const diaDaData = obterDiaSemana(dataAula);
     const doDia = horariosTdp.filter((h) => h.dia_semana === diaDaData);
+    // sem aula na grade nesse dia (ex.: reposição): oferece todos os horários da turma
     const listaBase = doDia.length > 0 ? doDia : horariosTdp;
 
     return listaBase.map((h, index) => ({
-      id: h.id,
-      rotulo: `${index + 1}ª aula · ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`,
+      id: String(h.id),
+      rotulo: doDia.length > 0
+        ? `${index + 1}ª aula · ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`
+        : `${h.dia_semana} ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`,
     }));
   }, [horariosTdp, dataAula]);
 
   useEffect(() => {
     if (opcoesAula.length > 0) {
-      const aindaExiste = opcoesAula.some((o) => o.rotulo === aulaSelecionada);
+      const aindaExiste = opcoesAula.some((o) => o.id === aulaSelecionada);
       if (!aindaExiste) {
-        setAulaSelecionada(opcoesAula[0].rotulo);
+        setAulaSelecionada(opcoesAula[0].id);
       }
     } else {
       setAulaSelecionada('');
     }
   }, [opcoesAula, aulaSelecionada]);
 
+  // Carrega alunos + a chamada já salva daquele dia E daquele horário
   useEffect(() => {
     if (!idTdpSelecionado || !dataAula) return;
 
     const turmaAtual = turmasProf.find((t) => String(t.id_tdp || t.id) === String(idTdpSelecionado));
     if (!turmaAtual) return;
 
+    let ativo = true; // ignora respostas antigas se o professor trocar de turma/data/aula rápido
     setCarregando(true);
     setMensagem('');
 
+    const filtroHorario = aulaSelecionada ? `&id_horario=${aulaSelecionada}` : '';
     Promise.all([
-      api(`/aluno?id_turma=${turmaAtual.id_turma}&limite=100`),
-      api(`/frequencia/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}`).catch(() => ({ dados: null })),
+      listarTodos(`/aluno?id_turma=${turmaAtual.id_turma}`),
+      api(`/frequencia/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}${filtroHorario}`).catch(() => ({ dados: null })),
     ])
-      .then(([resAlunos, resChamada]) => {
-        const listaAlunos = resAlunos?.dados || [];
+      .then(([listaAlunos, resChamada]) => {
+        if (!ativo) return;
         setAlunos(listaAlunos);
 
         const chamadaExistente = resChamada?.dados;
         if (chamadaExistente?.aula) {
-          if (chamadaExistente.aula.conteudo) {
-            setAulaSelecionada(chamadaExistente.aula.conteudo);
-          }
           const idsFaltosos = (chamadaExistente.frequencias || [])
             .filter((f) => Number(f.presente) === 0)
             .map((f) => f.id_aluno);
@@ -125,12 +130,16 @@ export default function Chamada() {
         }
       })
       .catch(() => {
-        setMensagem('Erro ao carregar lista de alunos.');
+        if (ativo) setMensagem('Erro ao carregar lista de alunos.');
       })
       .finally(() => {
-        setCarregando(false);
+        if (ativo) setCarregando(false);
       });
-  }, [idTdpSelecionado, dataAula, turmasProf]);
+
+    return () => {
+      ativo = false;
+    };
+  }, [idTdpSelecionado, dataAula, turmasProf, aulaSelecionada]);
 
   function alternar(idAluno) {
     setMensagem('');
@@ -158,8 +167,8 @@ export default function Chamada() {
         metodo: 'POST',
         corpo: {
           id_tdp: Number(idTdpSelecionado),
+          id_horario: aulaSelecionada ? Number(aulaSelecionada) : null,
           data: dataAula,
-          conteudo: aulaSelecionada || null,
           registros,
         },
       });
@@ -209,7 +218,7 @@ export default function Chamada() {
               <option value="">Sem horário cadastrado</option>
             ) : (
               opcoesAula.map((opcao) => (
-                <option key={opcao.id} value={opcao.rotulo}>
+                <option key={opcao.id} value={opcao.id}>
                   {opcao.rotulo}
                 </option>
               ))
@@ -272,4 +281,4 @@ export default function Chamada() {
       </div>
     </>
   );
-}
+}

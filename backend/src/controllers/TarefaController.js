@@ -1,4 +1,5 @@
 import * as TarefaService from '../services/TarefaService.js';
+import { turmaDoAluno } from '../utils/permissoes.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -12,8 +13,9 @@ function responderErro(erro, res, next) {
 
 export async function listar(req, res, next) {
   try {
-    const resultado = await TarefaService
-  .listar(req.query);
+    // aluno só vê o que é da turma dele; equipe vê tudo
+    const idTurma = await turmaDoAluno(req.usuario);
+    const resultado = await TarefaService.listar(req.query, { idTurma });
     return res.status(200).json({
       sucesso: true,
       dados: resultado.tarefas,

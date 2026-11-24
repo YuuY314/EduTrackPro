@@ -9,7 +9,7 @@ function validarId(idRecebido) {
   return id;
 }
 
-export async function listar({ pagina = 1, limite = 10 } = {}) {
+export async function listar({ pagina = 1, limite = 10 } = {}, { idTurma = null } = {}) {
   const paginaNum = Number(pagina);
   const limiteNum = Number(limite);
 
@@ -21,7 +21,7 @@ export async function listar({ pagina = 1, limite = 10 } = {}) {
   }
 
   const offset = (paginaNum - 1) * limiteNum;
-  const { avisos, total } = await AvisoModel.listar({ limite: limiteNum, offset });
+  const { avisos, total } = await AvisoModel.listar({ limite: limiteNum, offset, id_turma: idTurma });
 
   return {
     avisos,
@@ -44,13 +44,13 @@ export async function buscarPorId(idRecebido) {
 }
 
 export async function criar(dados) {
-  const avisoDominio = new Aviso({ id: 1, ...dados });
+  const avisoDominio = new Aviso({ ...dados, id_aviso: 1 }); // id provisório só para validar; o banco gera o real
   return await AvisoModel.criar(avisoDominio);
 }
 
 export async function atualizar(idRecebido, dados) {
   const id = validarId(idRecebido);
-  const avisoDominio = new Aviso({ id, ...dados });
+  const avisoDominio = new Aviso({ ...dados, id_aviso: id });
   const atualizou = await AvisoModel.atualizar(id, avisoDominio);
   if (!atualizou) {
     throw new Error(`Aviso ${id} não encontrado.`);

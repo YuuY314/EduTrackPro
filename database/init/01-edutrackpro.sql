@@ -113,13 +113,16 @@ CREATE TABLE horarios_aula (
 ) ENGINE=InnoDB;
 
 CREATE TABLE aulas (
-  id_aula  INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  id_tdp   INT UNSIGNED NOT NULL,
-  data     DATE NOT NULL,
-  conteudo VARCHAR(255) NULL,
+  id_aula    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_tdp     INT UNSIGNED NOT NULL,
+  id_horario INT UNSIGNED NULL,                  -- qual horário da grade (separa aulas duplas no mesmo dia)
+  data       DATE NOT NULL,
+  conteudo   VARCHAR(255) NULL,
   PRIMARY KEY (id_aula),
   KEY idx_aula_tdp_data (id_tdp, data),
-  CONSTRAINT fk_aula_tdp FOREIGN KEY (id_tdp) REFERENCES turma_disciplina_professor (id) ON DELETE CASCADE
+  UNIQUE KEY uq_aula_horario (id_tdp, data, id_horario),
+  CONSTRAINT fk_aula_tdp FOREIGN KEY (id_tdp) REFERENCES turma_disciplina_professor (id) ON DELETE CASCADE,
+  CONSTRAINT fk_aula_horario FOREIGN KEY (id_horario) REFERENCES horarios_aula (id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE frequencias (
@@ -539,4 +542,4 @@ FROM avaliacoes av;
 --   ORDER BY av.data_publicacao DESC;
 --
 -- Boletim de um aluno:
---   SELECT * FROM vw_boletim WHERE id_aluno = 1;
+--   SELECT * FROM vw_boletim WHERE id_aluno = 1;

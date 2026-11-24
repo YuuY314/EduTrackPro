@@ -1,23 +1,20 @@
-import express from 'express';
+// =====================================================================
+// routes/AulaRoutes.js - /api/aula
+// Todas as rotas exigem login (token). Aluno não acessa.
+// =====================================================================
+
+import { Router } from 'express';
 import * as AulaController from '../controllers/AulaController.js';
-// import { uploadImagem } from '../middlewares/UploadMiddleware.js';
+import { autenticar, exigirPerfil } from '../middlewares/autenticar.js';
 
-// Middlewares de autenticação (serão ativados na Sessão 2)
-// Inicialmente passam direto para não travar a Sessão 1
-let autenticar = (_req, _res, next) => next();
-let autorizarAdmin = (_req, _res, next) => next();
+export const aulaRouter = Router();
+aulaRouter.use(autenticar);
 
-export const aulaRouter = express.Router();
+const equipe = exigirPerfil('admin', 'professor');
+const somenteAdmin = exigirPerfil('admin');
 
-aulaRouter.get('/', AulaController.listar);
-aulaRouter.get('/:id', AulaController.buscarPorId);
-aulaRouter.post('/', (req, res, next) => autenticar(req, res, next), AulaController.criar);
-aulaRouter.put('/:id', (req, res, next) => autenticar(req, res, next), AulaController.atualizar);
-// aulaRouter.patch('/:id/imagem', (req, res, next) => autenticar(req, res, next), uploadImagem, AulaController.enviarImagem);
-aulaRouter.delete('/:id', (req, res, next) => autenticar(req, res, next), (req, res, next) => autorizarAdmin(req, res, next), AulaController.excluir);
-
-export function configurarSegurancaAulas(middlewareAuth, middlewareAdmin) {
-  // Substitui os middlewares provisórios da Sessão 1 pelos middlewares reais.
-  if (middlewareAuth) autenticar = middlewareAuth;
-  if (middlewareAdmin) autorizarAdmin = middlewareAdmin;
-}
+aulaRouter.get('/', equipe, AulaController.listar);
+aulaRouter.get('/:id', equipe, AulaController.buscarPorId);
+aulaRouter.post('/', equipe, AulaController.criar);
+aulaRouter.put('/:id', equipe, AulaController.atualizar);
+aulaRouter.delete('/:id', somenteAdmin, AulaController.excluir);

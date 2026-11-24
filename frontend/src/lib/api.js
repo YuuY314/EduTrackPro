@@ -1,5 +1,7 @@
 // Comunicação com o backend + sessão (token) guardada no navegador.
 
+import { bimestreAtual, hojeLocalISO } from './utils';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const CHAVE_SESSAO = 'edutrackpro:sessao';
 export const CHAVE_CONVERSA_SOPHOS = 'edutrackpro:sophos-ai';
@@ -36,6 +38,24 @@ export async function api(caminho, {
   }
 
   return dados;
+}
+
+// Busca TODAS as páginas de uma listagem paginada da API e devolve só o array.
+// As listagens devolvem no máximo 100 itens por vez ({ dados, paginacao });
+// sem isso, o que passasse de 100 (ou de 10, sem "limite") sumia da tela.
+export async function listarTodos(caminho) {
+  const separador = caminho.includes('?') ? '&' : '?';
+  const pagina = (n) => api(`${caminho}${separador}limite=100&pagina=${n}`);
+
+  const primeira = await pagina(1);
+  const itens = [...(primeira?.dados ?? [])];
+  const totalPaginas = Math.min(primeira?.paginacao?.totalPaginas ?? 1, 50); // trava de segurança
+
+  for (let n = 2; n <= totalPaginas; n++) {
+    const resposta = await pagina(n);
+    itens.push(...(resposta?.dados ?? []));
+  }
+  return itens;
 }
 
 // SophosAI (Gemini via backend). `historico` no formato do Gemini:
@@ -115,17 +135,19 @@ export async function buscarMinhaPresenca() {
 
 // ==================== Aluno: Painel Inicial ====================
 export async function buscarDashboardAluno() {
-  const [resumoFaltas, resTarefas, resAvisos] = await Promise.all([
+  // O backend já filtra /tarefa e /aviso pela turma do aluno logado.
+  // O calendário também: só eventos confirmados, gerais ou da turma dele.
+  const [resumoFaltas, listaTarefas, listaAvisos, listaCalendario] = await Promise.all([
     api('/faltas_aluno/meu'),
-    api('/tarefa'),
-    api('/aviso'),
+    listarTodos('/tarefa'),
+    listarTodos('/aviso'),
+    api('/calendario').catch(() => []),
   ]);
 
-  const listaTarefas = Array.isArray(resTarefas) ? resTarefas : (resTarefas?.dados ?? []);
-  const listaAvisos = Array.isArray(resAvisos) ? resAvisos : (resAvisos?.dados ?? []);
-
-  const totalPendencias = resTarefas?.paginacao?.total ?? listaTarefas.length;
-  const totalAvisos = resAvisos?.paginacao?.total ?? listaAvisos.length;
+  // Pendência = tarefa que ainda não venceu (entrega hoje ou depois)
+  const hoje = hojeLocalISO();
+  const totalPendencias = listaTarefas.filter((t) => String(t.data_entrega).slice(0, 10) >= hoje).length;
+  const totalAvisos = listaAvisos.length;
 
   const eventosAvisos = listaAvisos.map((a) => ({
     data: String(a.data_publicacao).slice(0, 10),
@@ -143,7 +165,15 @@ export async function buscarDashboardAluno() {
     pendencias: totalPendencias,
     mensagensNaoLidas: totalAvisos,
     faltas: resumoFaltas?.resumo?.faltas ?? resumoFaltas?.faltas ?? 0,
-    eventos: [...eventosAvisos, ...eventosTarefas],
+    eventos: [
+      ...(Array.isArray(listaCalendario) ? listaCalendario : []).map((e) => ({
+        data: e.data,
+        tipo: e.tipo,
+        descricao: e.descricao ?? '',
+      })),
+      ...eventosAvisos,
+      ...eventosTarefas,
+    ],
   };
 }
 
@@ -172,192 +202,118 @@ export async function redefinirSenha({ token, senha }) {
 }
 
 // ==================== Professor: Painel Inicial ====================
-//ele vai buscar cinco rotas diferentes da API ao mesmo tempo para retornar as informações do dashboard de uma só vez
+// Monta o painel do professor. Tudo parte dos vínculos (turma x disciplina)
+// DELE, e cada consulta já vem filtrada por esses vínculos. Antes, o painel
+// buscava listas gerais (/aluno, /aula, /faltas_aluno) sem "limite", e a API
+// só devolve 10 itens por página: alunos de fora entravam na lista e aulas
+// do dia ficavam de fora.
 export async function buscarDashboardProfessor() {
-
-  //primeiro ele lê quem está logado para pegar o ID do professor e em seguida faz as chamadas de API em paralelo (tornando o carregamento mais rápido) 
   const sessao = lerSessao();
   const idProfessor = sessao?.usuario?.id_professor;
 
-  const [resTurmas, resFaltas, resAlunos, resAulas] = await Promise.all([
-    idProfessor
-      ? api(`/turma_disciplina_professor/professor/${idProfessor}`).catch(() => ({ dados: [] }))
-      : Promise.resolve({ dados: [] }),
-    api('/faltas_aluno').catch(() => ({ dados: [] })),
-    api('/aluno').catch(() => ({ dados: [] })),
-    api('/aula').catch(() => ({ dados: [] })),
-  ]);
-
-  const listaTdp = Array.isArray(resTurmas) ? resTurmas : (resTurmas?.dados ?? []);
-  const listaFaltas = Array.isArray(resFaltas) ? resFaltas : (resFaltas?.dados ?? []);
-  const listaAlunos = Array.isArray(resAlunos) ? resAlunos : (resAlunos?.dados ?? []);
-  const listaAulas = Array.isArray(resAulas) ? resAulas : (resAulas?.dados ?? []);
-
-  //como o professor pode dar mais de uma materia para a mesma turma ele vai eliminar duplicações e criar uma lista de IDs pertencentes ao professor
-  const turmasUnicas = Array.from(
-    new Map(listaTdp.map((t) => [t.id_turma ?? t.id, t])).values()
-  );
-  const idsTdpProfessor = new Set(listaTdp.map((t) => Number(t.id_tdp ?? t.id)));
-  const idsTurmasProfessor = new Set(turmasUnicas.map((t) => Number(t.id_turma ?? t.id)));
-  const mapaAlunos = new Map(listaAlunos.map((a) => [Number(a.id_aluno ?? a.id), a]));
-
   const agora = new Date();
+  const hojeISO = hojeLocalISO(agora);
+  const bimestre = bimestreAtual(agora);
   const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  const hojeIndice = agora.getDay();
-  const hojeNome = diasSemana[hojeIndice].toLowerCase();
-  const hojeISO = [
-    agora.getFullYear(),
-    String(agora.getMonth() + 1).padStart(2, '0'),
-    String(agora.getDate()).padStart(2, '0'),
-  ].join('-');
-  const mesAtual = agora.getMonth() + 1;
-  const bimestreAtual = mesAtual <= 4 ? 1 : mesAtual <= 7 ? 2 : mesAtual <= 10 ? 3 : 4;
+  const hojeNome = diasSemana[agora.getDay()];
 
-  //busca os horários fixos e as notas do bimestre atual direto por cada id_tdp do professor (sem corte de paginação)
-  const bimestresTodos = [1, 2, 3, 4];
+  // 1) Vínculos do professor: [{ id_tdp, id_turma, nome (da turma), turno, disciplina }]
+  const resTdp = idProfessor
+    ? await api(`/turma_disciplina_professor/professor/${idProfessor}`).catch(() => ({ dados: [] }))
+    : { dados: [] };
+  const listaTdp = resTdp?.dados ?? [];
+  const turmasUnicas = Array.from(new Map(listaTdp.map((t) => [Number(t.id_turma), t])).values());
 
-  //busca os horários fixos e as notas dos 4 bimestres direto por cada id_tdp do professor
-  const [respostasHorarios, respostasTodosBimestres] = await Promise.all([
+  // 2) Em paralelo: alunos de cada turma, faltas, grade, notas do bimestre e chamada de hoje
+  const [alunosPorTurma, listaFaltas, horariosPorTdp, notasPorTdp, chamadaHojePorTdp] = await Promise.all([
     Promise.all(
-      listaTdp.map((t) => {
-        const idTdp = t.id_tdp ?? t.id;
-        return idTdp
-          ? api(`/frequencia/horarios/${idTdp}`).catch(() => ({ dados: [] }))
-          : Promise.resolve({ dados: [] });
-      })
+      turmasUnicas.map((t) =>
+        listarTodos(`/aluno?id_turma=${t.id_turma}`).then((alunos) => alunos.map((a) => ({ ...a, turno: t.turno })))
+      )
+    ),
+    listarTodos('/faltas_aluno').catch(() => []),
+    Promise.all(listaTdp.map((t) => api(`/frequencia/horarios/${t.id_tdp}`).then((r) => r?.dados ?? []).catch(() => []))),
+    Promise.all(
+      listaTdp.map((t) =>
+        api(`/nota/boletim?id_tdp=${t.id_tdp}&bimestre=${bimestre}`)
+          .then((r) => r?.dados?.notas ?? [])
+          .catch(() => [])
+      )
     ),
     Promise.all(
-      listaTdp.flatMap((t) => {
-        const idTdp = t.id_tdp ?? t.id;
-        const idTurma = Number(t.id_turma ?? t.id);
-        return bimestresTodos.map((bim) =>
-          idTdp
-            ? api(`/nota/boletim?id_tdp=${idTdp}&bimestre=${bim}`)
-                .then((res) => ({ idTurma, bim, notas: res?.dados?.notas ?? [] }))
-                .catch(() => ({ idTurma, bim, notas: [] }))
-            : Promise.resolve({ idTurma, bim, notas: [] })
-        );
-      })
+      listaTdp.map((t) =>
+        api(`/frequencia/chamada?id_tdp=${t.id_tdp}&data=${hojeISO}`)
+          .then((r) => r?.dados?.aula ?? null)
+          .catch(() => null)
+      )
     ),
   ]);
 
-  const listaHorarios = respostasHorarios.flatMap((r) =>
-    Array.isArray(r) ? r : (r?.dados ?? [])
-  );
+  const nomeDaTurma = (tdp) => [tdp.nome, tdp.turno].filter(Boolean).join(' · ') || 'Turma';
 
-  //descobre qual é o dia da semana de hoje pelo relógio do computador, mantendo os horários que pertencem ao professor e ordenando as aulas da mais cedo para a mais tarde
-  const aulasHoje = listaHorarios
-    .filter((h) => {
-      const dia = String(h.dia_semana ?? h.dia ?? '').toLowerCase();
-      return (
-        dia.startsWith(hojeNome.slice(0, 3)) ||
-        Number(h.dia_semana) === hojeIndice ||
-        Number(h.dia_semana) === hojeIndice + 1
-      );
-    })
-    .map((h, idx) => {
-      const tdp = listaTdp.find((t) => Number(t.id_tdp ?? t.id) === Number(h.id_tdp)) || h;
-      const inicio = String(h.hora_inicio ?? h.inicio ?? '').slice(0, 5);
-      const fim = String(h.hora_fim ?? h.fim ?? '').slice(0, 5);
-      const hora = inicio && fim ? `${inicio} - ${fim}` : inicio || `Aula ${idx + 1}`;
-      const turmaNome = [tdp.turma || tdp.nome_turma, tdp.turno || tdp.periodo]
-        .filter(Boolean)
-        .join(' · ');
-      const disciplinaNome = tdp.disciplina || tdp.nome_disciplina || 'Aula';
-
-      return {
-        id: h.id_horario ?? h.id ?? `${hora}-${idx}`,
-        idTdp: Number(h.id_tdp),
-        hora,
-        turma: turmaNome || 'Turma',
-        detalhe: disciplinaNome,
-      };
-    })
-    .sort((a, b) => a.hora.localeCompare(b.hora));
-
-  //inclui também chamadas registradas hoje na tabela aulas caso o professor tenha dado aula fora do horário fixo
-  const tdpsJaNaLista = new Set(aulasHoje.map((a) => a.idTdp));
-  listaAulas.forEach((a, idx) => {
-    const idTdp = Number(a.id_tdp);
-    const dataRegistro = a.data ? String(a.data).slice(0, 10) : '';
-    if (!idsTdpProfessor.has(idTdp) || dataRegistro !== hojeISO || tdpsJaNaLista.has(idTdp)) {
-      return;
-    }
-    tdpsJaNaLista.add(idTdp);
-    const tdp = listaTdp.find((t) => Number(t.id_tdp ?? t.id) === idTdp) || {};
-    const turmaNome = [tdp.turma || tdp.nome_turma, tdp.turno || tdp.periodo]
-      .filter(Boolean)
-      .join(' · ');
-    const disciplinaNome = tdp.disciplina || tdp.nome_disciplina || 'Aula';
-
-    aulasHoje.push({
-      id: `aula-${a.id_aula ?? a.id ?? idx}`,
-      idTdp,
-      hora: a.conteudo || 'Chamada registrada',
-      turma: turmaNome || 'Turma',
-      detalhe: disciplinaNome,
-    });
+  // 3) Aulas de hoje pela grade fixa
+  const aulasHoje = [];
+  listaTdp.forEach((tdp, i) => {
+    horariosPorTdp[i]
+      .filter((h) => h.dia_semana === hojeNome)
+      .forEach((h) => {
+        aulasHoje.push({
+          id: `h-${h.id}`,
+          idTdp: Number(tdp.id_tdp),
+          hora: `${String(h.hora_inicio).slice(0, 5)} - ${String(h.hora_fim).slice(0, 5)}`,
+          turma: nomeDaTurma(tdp),
+          detalhe: tdp.disciplina || 'Aula',
+        });
+      });
   });
 
-  //filtra alunos com o percentual abaixo de 75% e ordenando de menor percentual ao maior (mais criticos no topo) 
+  // ...mais as chamadas registradas hoje fora da grade (ex.: aula de reposição)
+  const tdpsComAulaHoje = new Set(aulasHoje.map((a) => a.idTdp));
+  listaTdp.forEach((tdp, i) => {
+    const aula = chamadaHojePorTdp[i];
+    if (aula && !tdpsComAulaHoje.has(Number(tdp.id_tdp))) {
+      aulasHoje.push({
+        id: `aula-${aula.id_aula}`,
+        idTdp: Number(tdp.id_tdp),
+        hora: 'Chamada registrada',
+        turma: nomeDaTurma(tdp),
+        detalhe: tdp.disciplina || 'Aula',
+      });
+    }
+  });
+  aulasHoje.sort((a, b) => a.hora.localeCompare(b.hora));
+
+  // 4) Alunos (só os das turmas do professor) com presença abaixo de 75%
+  const mapaAlunos = new Map(alunosPorTurma.flat().map((a) => [Number(a.id_aluno), a]));
   const alunosBaixaFrequencia = listaFaltas
-    .filter((f) => {
-      const alunoInfo = mapaAlunos.get(Number(f.id_aluno));
-      const idTurma = f.id_turma ?? alunoInfo?.id_turma;
-
-      const pertence =
-        (f.id_professor && Number(f.id_professor) === Number(idProfessor)) ||
-        (f.id_tdp && idsTdpProfessor.has(Number(f.id_tdp))) ||
-        (idTurma && idsTurmasProfessor.has(Number(idTurma)));
-
-      if (!pertence && (f.id_professor || f.id_tdp || idTurma)) return false;
-
-      const freq = Number(f.frequencia ?? f.percentual_presenca ?? f.presenca_percentual ?? 100);
-      return freq < 75;
-    })
-    .map((f, idx) => {
-      const alunoInfo = mapaAlunos.get(Number(f.id_aluno));
-      const freq = Math.round(
-        Number(f.frequencia ?? f.percentual_presenca ?? f.presenca_percentual ?? 0)
-      );
+    .filter((f) => mapaAlunos.has(Number(f.id_aluno)) && Number(f.percentual_presenca) < 75)
+    .map((f) => {
+      const aluno = mapaAlunos.get(Number(f.id_aluno));
       return {
-        id: f.id_aluno ?? f.id ?? idx,
-        nome: f.aluno || f.nome_aluno || f.nome || alunoInfo?.nome || 'Aluno',
-        detalhe: [
-          f.turma || f.nome_turma || alunoInfo?.turma || alunoInfo?.nome_turma,
-          f.turno || f.periodo || alunoInfo?.turno || alunoInfo?.periodo,
-        ]
-          .filter(Boolean)
-          .join(' · '),
-        frequencia: freq,
+        id: Number(f.id_aluno),
+        nome: f.aluno || aluno.nome,
+        detalhe: [aluno.turma, aluno.turno].filter(Boolean).join(' · '),
+        frequencia: Math.round(Number(f.percentual_presenca)),
       };
     })
     .sort((a, b) => a.frequencia - b.frequencia);
 
-  //Turmas que possuem pelo menos um bimestre (1º ao 4º) sem nenhuma nota lançada
-  const turmasComPendencia = new Set();
-  respostasTodosBimestres.forEach(({ idTurma, notas }) => {
-    if (idTurma && notas.length === 0) {
-      turmasComPendencia.add(idTurma);
-    }
+  // 5) Turmas com alguma disciplina do professor ainda sem nota no bimestre ATUAL
+  //    (antes contava os 4 bimestres, inclusive os que nem começaram)
+  const turmasSemNotaIds = new Set();
+  listaTdp.forEach((tdp, i) => {
+    if (notasPorTdp[i].length === 0) turmasSemNotaIds.add(Number(tdp.id_turma));
   });
 
-  const turmasSemNota = turmasUnicas.filter((t) =>
-    turmasComPendencia.has(Number(t.id_turma ?? t.id))
-  ).length;
-
-  const disciplinaPrincipal =
-    listaTdp[0]?.disciplina || listaTdp[0]?.nome_disciplina || 'suas turmas';
-
   return {
-    bimestreAtual,
+    bimestreAtual: bimestre,
     totalAulasHoje: aulasHoje.length,
-    turmasSemNota,
+    turmasSemNota: turmasSemNotaIds.size,
     totalTurmas: turmasUnicas.length,
     totalBaixaFrequencia: alunosBaixaFrequencia.length,
     aulasHoje,
     alunosBaixaFrequencia,
-    disciplinaPrincipal,
+    disciplinaPrincipal: listaTdp[0]?.disciplina || 'suas turmas',
   };
 }
 
@@ -367,10 +323,10 @@ export async function buscarDashboardProfessor() {
 export async function listarAlunosAdmin() {
   //disparando quatro requisições GET ao mesmo tempopara trazer todosos alunos cadastrados e suas respectivas turmas, turnos, dados cadastrais dos responsaveis e consulta as vw_faltas_alunos para obter o percentual de frequência (limit=100 para evitar cortes de página)
   const [resAlunos, resTurmas, resFaltas, resResponsaveis] = await Promise.all([
-    api('/aluno?limite=100'),
-    api('/turma?limite=100').catch(() => ({ dados: [] })),
-    api('/faltas_aluno?limite=100').catch(() => ({ dados: [] })),
-    api('/responsavel?limite=100').catch(() => ({ dados: [] })),
+    listarTodos('/aluno').then((dados) => ({ dados })),
+    listarTodos('/turma').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+    listarTodos('/faltas_aluno').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+    listarTodos('/responsavel').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
   ]);
 
   const listaAlunos = Array.isArray(resAlunos) ? resAlunos : (resAlunos?.dados ?? []);
@@ -486,19 +442,17 @@ export async function excluirAlunoAdmin(idAluno) {
 
 //montagem da tabela e os filtros
 export async function listarProfessoresAdmin() {
-  const agora = new Date();
-  const mesAtual = agora.getMonth() + 1;
-  //se baseia no mês em que estamos para verificar as notas do bimestre
-  const bimestreAtual = mesAtual <= 4 ? 1 : mesAtual <= 7 ? 2 : mesAtual <= 10 ? 3 : 4;
+  //se baseia no mês em que estamos para verificar as notas do bimestre (mesma regra do backend)
+  const bimestre = bimestreAtual();
 
   //faz seis requisições ao mesmo tempo e garante que se ouver rota vazia ou falha a tela não quebra 
   const [resProf, resTdp, resDisc, resTurmas, resAval, resNotas] = await Promise.all([
-    api('/professor?limite=100'),
-    api('/turma_disciplina_professor?limite=100').catch(() => ({ turma_disciplina_professor: [] })),
-    api('/disciplina?limite=100').catch(() => ({ dados: [] })),
-    api('/turma?limite=100').catch(() => ({ turmas: [] })),
-    api('/avaliacao?limite=100').catch(() => ({ dados: [] })),
-    api('/nota?limite=100').catch(() => ({ dados: [] })),
+    listarTodos('/professor').then((dados) => ({ dados })),
+    listarTodos('/turma_disciplina_professor').then((dados) => ({ dados })).catch(() => ({ turma_disciplina_professor: [] })),
+    listarTodos('/disciplina').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+    listarTodos('/turma').then((dados) => ({ dados })).catch(() => ({ turmas: [] })),
+    listarTodos('/avaliacao').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+    listarTodos('/nota').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
   ]);
 
   //montagem das linhas da tela filtrando os registros pertencentes ao professor
@@ -554,7 +508,7 @@ export async function listarProfessoresAdmin() {
     if (vinculos.length > 0) {
       const idsTdp = new Set(vinculos.map((v) => Number(v.id ?? v.id_tdp)));
       const avalsBimestre = listaAval.filter(
-        (a) => idsTdp.has(Number(a.id_tdp)) && Number(a.bimestre) === bimestreAtual
+        (a) => idsTdp.has(Number(a.id_tdp)) && Number(a.bimestre) === bimestre
       );
 
       if (avalsBimestre.length === 0) {
@@ -594,7 +548,7 @@ export async function listarProfessoresAdmin() {
     nome: d.nome,
   }));
 
-  return { professores, turmas, disciplinas, bimestreAtual };
+  return { professores, turmas, disciplinas, bimestreAtual: bimestre };
 }
 
 // Atualiza dados pessoais do professor e sincroniza múltiplos vínculos (disciplinas x turmas)
@@ -652,7 +606,7 @@ export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDis
       );
 
       if (!Number.isInteger(idDiscCriada) || idDiscCriada <= 0) {
-        const resDiscAtualizada = await api('/disciplina?limite=100');
+        const resDiscAtualizada = await listarTodos('/disciplina');
         const listaDiscAtualizada = Array.isArray(resDiscAtualizada)
           ? resDiscAtualizada
           : Object.values(resDiscAtualizada || {}).find(Array.isArray) || [];
@@ -681,13 +635,20 @@ export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDis
 
   const vinculosAtuais = professorAtual.vinculos || [];
 
-  // 1. Remove vínculos cuja disciplina ou turma foram desmarcadas
+  // 1. Remove vínculos cuja disciplina ou turma foram desmarcadas.
+  //    O backend recusa (409) se o vínculo já tiver aulas, notas ou tarefas,
+  //    para não apagar o histórico. Esses erros são juntados e mostrados no fim.
+  const naoRemovidos = [];
   for (const v of vinculosAtuais) {
     const discMantida = idsDisciplinasAlvo.has(Number(v.id_disciplina));
     const turmaMantida = idsTurmasAlvo.has(Number(v.id_turma));
     const idVinculo = v.id_tdp ?? v.id_turma_disciplina_professor ?? v.id;
     if ((!discMantida || !turmaMantida) && idVinculo) {
-      await api(`/turma_disciplina_professor/${idVinculo}`, { metodo: 'DELETE' }).catch(() => null);
+      try {
+        await api(`/turma_disciplina_professor/${idVinculo}`, { metodo: 'DELETE' });
+      } catch (erro) {
+        naoRemovidos.push(erro.message);
+      }
     }
   }
 
@@ -710,6 +671,12 @@ export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDis
       }
     }
   }
+
+  if (naoRemovidos.length > 0) {
+    throw new Error(
+      `Dados salvos, mas ${naoRemovidos.length} turma(s) não puderam ser retiradas do professor: ${naoRemovidos[0]}`
+    );
+  }
 }
 
 export async function excluirProfessorAdmin(idProfessor) {
@@ -722,10 +689,10 @@ export async function excluirProfessorAdmin(idProfessor) {
 //chamadas simultâneas para fazer quatro requisições buscando os indicadores exigidos pela tabelada secretaria
 export async function listarTurmasAdmin() {
   const [resTurmas, resAlunos, resDisc, resTdp] = await Promise.all([
-    api('/turma?limite=100'),
-    api('/aluno?limite=100').catch(() => ({ dados: [] })),
-    api('/disciplina?limite=100').catch(() => ({ dados: [] })),
-    api('/turma_disciplina_professor?limite=100').catch(() => ({ dados: [] })),
+    listarTodos('/turma').then((dados) => ({ dados })),
+    listarTodos('/aluno').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+    listarTodos('/disciplina').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+    listarTodos('/turma_disciplina_professor').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
   ]);
 
   const listaTurmas = Array.isArray(resTurmas) ? resTurmas : (resTurmas?.dados ?? []);
@@ -829,4 +796,4 @@ export const admin = {
   salvarProfessor: (id, corpo) => api(`/admin/professores/${id}`, { metodo: 'PUT', corpo }),
   excluirProfessor: (id) => api(`/admin/professores/${id}`, { metodo: 'DELETE' }),
   criarAdministrador: (corpo) => api('/admin/administradores', { metodo: 'POST', corpo }),
-};
+};

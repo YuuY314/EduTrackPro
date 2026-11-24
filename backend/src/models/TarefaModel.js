@@ -9,16 +9,22 @@ function hidratarTarefa(linha) {
 }
 
 // 1. Listagem com paginação parametrizada
-export async function listar({ limite, offset }) {
+// id_turma (opcional): só as tarefas das disciplinas daquela turma (usado para o aluno)
+export async function listar({ limite, offset, id_turma = null }) {
   const limiteNum = Number.parseInt(limite, 10);
   const offsetNum = Number.parseInt(offset, 10);
 
+  const where = id_turma
+    ? 'WHERE id_tdp IN (SELECT id FROM turma_disciplina_professor WHERE id_turma = ?)'
+    : '';
+  const filtro = id_turma ? [id_turma] : [];
+
   const [linhas] = await pool.query(
-    'SELECT * FROM tarefas ORDER BY id_tarefa LIMIT ? OFFSET ?',
-    [limiteNum, offsetNum]
+    `SELECT * FROM tarefas ${where} ORDER BY id_tarefa LIMIT ? OFFSET ?`,
+    [...filtro, limiteNum, offsetNum]
   );
 
-  const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM tarefas');
+  const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM tarefas ${where}`, filtro);
 
   return {
     tarefas: linhas.map(hidratarTarefa),
@@ -35,10 +41,10 @@ export async function buscarPorId(id) {
 
 // 3. Inserção
 export async function criar(tarefa) {
-  const sql = 'INSERT INTO tarefas (id_tdp, titulo, descricao, data_entrega) VALUES (?)';
+  const sql = 'INSERT INTO tarefas (id_tdp, titulo, descricao, data_entrega) VALUES (?, ?, ?, ?)';
   const valores = [tarefa.id_tdp, tarefa.titulo, tarefa.descricao, tarefa.data_entrega];
   const [resultado] = await pool.query(sql, valores);
-  return { ...tarefa, id: resultado.insertId, imagem_url: null };
+  return { ...tarefa, id_tarefa: resultado.insertId, id: resultado.insertId };
 }
 
 // 4. Atualização completa (PUT)

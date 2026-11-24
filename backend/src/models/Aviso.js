@@ -1,6 +1,13 @@
+// Data de hoje no fuso do servidor, no formato YYYY-MM-DD.
+function hoje() {
+    const d = new Date();
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+}
+
 export default class Aviso {
+    // id_turma omitido = aviso geral (null); data omitida = hoje
     constructor({
-        id_aviso, id_autor, id_turma, titulo, texto, data_publicacao
+        id_aviso, id_autor, id_turma = null, titulo, texto, data_publicacao = hoje()
     }) {
         if (!Number.isInteger(id_aviso) || id_aviso <= 0) {
             throw new TypeError('ID deve ser um inteiro positivo');
@@ -27,4 +34,4 @@ export default class Aviso {
         this.texto = texto.trim();
         this.data_publicacao = data_publicacao;
     }
-}
+}

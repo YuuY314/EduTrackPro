@@ -44,13 +44,13 @@ export async function buscarPorId(idRecebido) {
 }
 
 export async function criar(dados) {
-  const avaliacaoDominio = new Avaliacao({ id: 1, ...dados });
+  const avaliacaoDominio = new Avaliacao({ ...dados, id_avaliacao: 1 }); // id provisório só para validar; o banco gera o real
   return await AvaliacaoModel.criar(avaliacaoDominio);
 }
 
 export async function atualizar(idRecebido, dados) {
   const id = validarId(idRecebido);
-  const avaliacaoDominio = new Avaliacao({ id, ...dados });
+  const avaliacaoDominio = new Avaliacao({ ...dados, id_avaliacao: id });
   const atualizou = await AvaliacaoModel.atualizar(id, avaliacaoDominio);
   if (!atualizou) {
     throw new Error(`Avaliacao ${id} não encontrado.`);

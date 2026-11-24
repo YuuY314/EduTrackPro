@@ -93,6 +93,17 @@ export async function atualizar(id, turma_disciplina_professor) {
 //   return resultado.affectedRows > 0;
 // }
 
+// Quantos registros de histórico (aulas, avaliações, tarefas) dependem do vínculo
+export async function contarUsos(id) {
+  const [[{ usos }]] = await pool.query(
+    `SELECT (SELECT COUNT(*) FROM aulas      WHERE id_tdp = ?)
+          + (SELECT COUNT(*) FROM avaliacoes WHERE id_tdp = ?)
+          + (SELECT COUNT(*) FROM tarefas    WHERE id_tdp = ?) AS usos`,
+    [id, id, id]
+  );
+  return Number(usos);
+}
+
 // 6. Remoção (DELETE)
 export async function excluir(id) {
   const [resultado] = await pool.query('DELETE FROM turma_disciplina_professor WHERE id = ?', [id]);

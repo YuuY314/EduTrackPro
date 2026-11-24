@@ -7,9 +7,10 @@ import { emTransacao, pool } from '../config/database.js';
 import * as UsuarioModel from '../models/UsuarioModel.js';
 import { AppError } from '../utils/AppError.js';
 import { gerarHash } from '../utils/senha.js';
-import { lerTextos, paraId } from '../utils/validacoes.js';
+import { bimestreAtual } from '../utils/bimestre.js';
+import { lerTextos, paraId, validarSenha } from '../utils/validacoes.js';
 
-const BIMESTRE_ATUAL = 3;
+// bimestre atual: bimestreAtual() de utils/bimestre.js (antes era fixo em 3)
 const PERIODOS = ['Manhã', 'Tarde', 'Noite'];
 
 const q = async (sql, params = [], db = pool) => (await db.query(sql, params))[0];
@@ -30,7 +31,7 @@ export async function resumo() {
     `SELECT COUNT(DISTINCT tdp.id_turma) AS turmasPendentes
        FROM turma_disciplina_professor tdp
       WHERE NOT EXISTS (SELECT 1 FROM avaliacoes av JOIN notas n ON n.id_avaliacao = av.id_avaliacao
-                         WHERE av.id_tdp = tdp.id AND av.bimestre = ?)`, [BIMESTRE_ATUAL]);
+                         WHERE av.id_tdp = tdp.id AND av.bimestre = ?)`, [bimestreAtual()]);
   return {
     alunos, professores, frequenciaMedia: freq === null ? null : Number(freq),
     turmasPendentes, alunosRisco, lancamentosAtrasados: atrasados.slice(0, 6),
@@ -90,7 +91,7 @@ export async function criarAluno(body = {}) {
     obrigatorios: ['matricula', 'nome', 'cpf', 'email_institucional', 'senha'], opcionais: ['endereco'],
   });
   const id_turma = paraId(body.id_turma, 'id_turma');
-  const senha_hash = await gerarHash(d.senha);
+  const senha_hash = await gerarHash(validarSenha(d.senha));
   const id = await emTransacao(async (c) => {
     const id_responsavel = body.responsavel
       ? await gravarResponsavel(body.responsavel, c)
@@ -153,7 +154,7 @@ export async function listarProfessores({ somenteAtrasados = false } = {}) {
               WHERE x.id_professor = p.id_professor
                 AND NOT EXISTS (SELECT 1 FROM avaliacoes av JOIN notas n ON n.id_avaliacao = av.id_avaliacao
                                  WHERE av.id_tdp = x.id AND av.bimestre = ?)) AS pendentes
-       FROM professores p ORDER BY p.nome`, [BIMESTRE_ATUAL]);
+       FROM professores p ORDER BY p.nome`, [bimestreAtual()]);
   const todos = linhas.map((p) => ({
     ...p,
     ids_turmas: p.ids_turmas ? p.ids_turmas.split(',').map(Number) : [],
@@ -199,7 +200,7 @@ async function sincronizarAulas(id_professor, disciplina, idsTurmas, c) {
 
 export async function criarProfessor(body = {}) {
   const d = lerTextos(body, { obrigatorios: ['nome', 'cpf', 'email', 'senha'], opcionais: ['telefone'] });
-  const senha_hash = await gerarHash(d.senha);
+  const senha_hash = await gerarHash(validarSenha(d.senha));
   const id = await emTransacao(async (c) => {
     const id_usuario = await UsuarioModel.criar({ email: d.email, senha_hash, perfil: 'professor' }, c);
     const [r] = await c.query(
@@ -241,7 +242,7 @@ export async function excluirProfessor(idRecebido) {
 // ---------- administradores ----------
 export async function criarAdministrador(body = {}) {
   const d = lerTextos(body, { obrigatorios: ['nome', 'cpf', 'email', 'senha'], opcionais: ['telefone'] });
-  const senha_hash = await gerarHash(d.senha);
+  const senha_hash = await gerarHash(validarSenha(d.senha));
   const id = await emTransacao(async (c) => {
     const id_usuario = await UsuarioModel.criar({ email: d.email, senha_hash, perfil: 'admin' }, c);
     const [r] = await c.query(

@@ -75,12 +75,18 @@ export async function excluir(idRecebido) {
   }
 }
 
-export async function buscarChamada(id_tdp, data) {
+// id_horario é opcional: vazio/ausente = qualquer aula do dia (comportamento antigo)
+function lerIdHorario(valor) {
+  if (valor === undefined || valor === null || valor === '') return null;
+  return validarId(valor);
+}
+
+export async function buscarChamada(id_tdp, data, id_horario) {
   const idTdpNum = validarId(id_tdp);
   if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     throw new TypeError('Data deve estar no formato YYYY-MM-DD.');
   }
-  return await FrequenciaModel.buscarChamada(idTdpNum, data);
+  return await FrequenciaModel.buscarChamada(idTdpNum, data, lerIdHorario(id_horario));
 }
 
 export async function salvarChamada(dados) {
@@ -92,10 +98,12 @@ export async function salvarChamada(dados) {
   if (!Array.isArray(registros) || registros.length === 0) {
     throw new TypeError('É necessário informar a lista de frequência dos alunos.');
   }
-  return await FrequenciaModel.salvarChamadaCompleta({ id_tdp, data, conteudo, registros });
+  for (const reg of registros) validarId(reg?.id_aluno);
+  const id_horario = lerIdHorario(dados.id_horario);
+  return await FrequenciaModel.salvarChamadaCompleta({ id_tdp, id_horario, data, conteudo, registros });
 }
 
 export async function listarHorarios(id_tdp) {
   const idTdpNum = validarId(id_tdp);
   return await FrequenciaModel.listarHorariosPorTdp(idTdpNum);
-}
+}

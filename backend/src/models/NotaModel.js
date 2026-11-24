@@ -1,4 +1,5 @@
 import * as dbModule from '../config/database.js';
+import { garantirAlunosDaTdp } from '../utils/permissoes.js';
 
 // Suporta tanto o pool exportado diretamente quanto a fábrica criarPool()
 const pool = typeof dbModule.criarPool === 'function' ? dbModule.criarPool() : dbModule.pool;
@@ -121,6 +122,8 @@ export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registr
   try {
     await conexao.beginTransaction();
 
+    await garantirAlunosDaTdp(id_tdp, registros.map((r) => r.id_aluno), conexao);
+
     const pesosPorTitulo = {
       'Prova 1': 0.40,
       'Prova 2': 0.30,
@@ -194,4 +197,4 @@ export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registr
   } finally {
     conexao.release();
   }
-}
+}
