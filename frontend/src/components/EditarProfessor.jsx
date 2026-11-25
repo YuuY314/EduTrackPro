@@ -30,12 +30,18 @@ function montarForm(professor, turmas) {
   const idsVinculados = professor.ids_turmas
     ?? (professor.vinculos ? [...new Set(professor.vinculos.map((v) => Number(v.id_turma)))] : []);
 
+  let disciplinasIniciais = [];
+  if (Array.isArray(professor.disciplinas)) {
+    disciplinasIniciais = professor.disciplinas;
+  } else if (professor.disciplina && professor.disciplina !== 'Sem disciplina') {
+    disciplinasIniciais = professor.disciplina.split(',').map((d) => d.trim()).filter(Boolean);
+  }
   return {
     nome: professor.nome ?? '',
     cpf: professor.cpf ?? '',
     telefone: professor.telefone ?? '',
     email: professor.email ?? '',
-    disciplina: professor.disciplina === 'Sem disciplina' ? '' : (professor.disciplina ?? ''),
+    disciplinas: disciplinasIniciais,
     turmas: idsVinculados,
   };
 }
@@ -68,7 +74,8 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
 
   function alterar(campo, mascara) {
     return (e) => {
-      const valor = mascara ? mascara(e.target.value) : e.target.value;
+      const bruto = e?.target !== undefined ? e.target.value : e;
+      const valor = mascara ? mascara(bruto) : bruto;
       setForm((f) => ({ ...f, [campo]: valor }));
     };
   }
@@ -80,7 +87,9 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
     if (form.cpf && !cpfValido(form.cpf)) e.cpf = 'CPF incompleto';
     if (form.telefone && !telefoneValido(form.telefone)) e.telefone = 'Telefone incompleto';
     if (form.email && !emailValido(form.email)) e.email = 'Email inválido';
-    if (!form.disciplina.trim()) e.disciplina = 'Informe a disciplina';
+    if (!form.disciplinas || form.disciplinas.length === 0) {
+      e.disciplinas = 'Selecione ao menos uma disciplina';
+    }
     return e;
   }
 
@@ -98,8 +107,10 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
         cpf: form.cpf,
         telefone: form.telefone,
         email: form.email.trim(),
-        disciplina: form.disciplina.trim(),
+        disciplinas: form.disciplinas,
+        disciplina: form.disciplinas.join(', '),
         id_turmas: form.turmas.map(Number),
+        horarios: limparHorarios(horarios),
       });
       fechar();
     } catch (err) {
@@ -134,6 +145,8 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
         </header>
 
         <div className={styles.conteudo}>
+          {erroEnvio && <p className={styles.erro}>{erroEnvio}</p>}
+
           <section className={styles.secao}>
             <Titulo numero="1" titulo="Dados pessoais" texto="Informações pessoais e de contato" />
             <div className={styles.grid}>
@@ -168,15 +181,15 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
           </section>
 
           <section className={`${styles.secao} ${styles.atraso}`}>
-            <Titulo numero="2" titulo="Aulas" texto="Disciplina e turmas atendidas" />
+            <Titulo numero="2" titulo="Aulas" texto="Disciplinas e turmas atendidas" />
             <div className={styles.grid}>
-              <Campo label="Disciplinas" erro={erros.disciplina}>
+              <Campo label="Disciplinas" erro={erros.disciplinas}>
                 <Selecao
                   multiplo
                   value={form.disciplinas}
                   onChange={alterar('disciplinas')}
                   placeholder="Selecione as disciplinas"
-                  erro={Boolean(erros.disciplina)}
+                  erro={Boolean(erros.disciplinas)}
                   opcoes={disciplinas.map((d) => ({ value: d, label: d }))}
                 />
               </Campo>
@@ -192,12 +205,22 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
             </div>
           </section>
 
-          <SecaoHorarios turmas={turmas} selecionadas={form.turmas} value={horarios} onChange={setHorarios} />
+          <SecaoHorarios
+            turmas={turmas}
+            selecionadas={form.turmas}
+            disciplinas={form.disciplinas}
+            value={horarios}
+            onChange={setHorarios}
+          />
         </div>
 
         <footer className={styles.rodape}>
-          <button type="button" className={styles.btnSecundario} onClick={fechar}>Cancelar</button>
-          <button type="submit" className={styles.btnPrimario}>Salvar alterações</button>
+          <button type="button" className={styles.btnSecundario} onClick={fechar} disabled={salvando}>
+            Cancelar
+          </button>
+          <button type="submit" className={styles.btnPrimario} disabled={salvando}>
+            {salvando ? 'Salvando...' : 'Salvar alterações'}
+          </button>
         </footer>
       </form>
     </div>

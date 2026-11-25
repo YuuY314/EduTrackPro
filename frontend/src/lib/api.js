@@ -553,136 +553,55 @@ export async function listarProfessoresAdmin() {
   return { professores, turmas, disciplinas, bimestreAtual: bimestre };
 }
 
-// Atualiza dados pessoais do professor e sincroniza múltiplos vínculos (disciplinas x turmas)
+// Atualiza dados pessoais do professor, vínculos (disciplinas x turmas) e horários
 export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDisponiveis, disciplinasDisponiveis }) {
   const idProf = Number(professorAtual.id_professor ?? professorAtual.id);
 
-  const mudouDadosPessoais =
-    dados.nome !== professorAtual.nome ||
-    dados.cpf !== professorAtual.cpf ||
-    (dados.telefone || '') !== (professorAtual.telefone || '') ||
-    dados.email !== professorAtual.email;
+  const nomesDisciplinasAlvo = Array.isArray(dados.disciplinas)
+    ? dados.disciplinas
+    : (dados.disciplina || '')
+        .split(',')
+        .map((n) => n.trim())
+        .filter((n) => n && n !== 'Sem disciplina');
 
-  if (mudouDadosPessoais) {
-    await api(`/professor/${idProf}`, {
-      metodo: 'PUT',
-      corpo: {
-        nome: dados.nome,
-        cpf: dados.cpf,
-        telefone: dados.telefone || undefined,
-        email: dados.email,
-      },
-    });
-  }
+  const idsTurmasAlvo = Array.isArray(dados.id_turmas)
+    ? dados.id_turmas.map(Number).filter((id) => Number.isInteger(id) && id > 0)
+    : turmasDisponiveis
+        .filter((t) =>
+          String(dados.turmas || '')
+            .split(',')
+            .map((n) => n.trim())
+            .filter((n) => n && n !== '–')
+            .includes(t.nome)
+        )
+        .map((t) => Number(t.id_turma ?? t.id));
 
-  // Separa múltiplas disciplinas (ex.: "História, Geografia")
-  const nomesDisciplinasAlvo = (dados.disciplina || '')
-    .split(',')
-    .map((n) => n.trim())
-    .filter((n) => n && n !== 'Sem disciplina');
-
-  // Aceita tanto array de IDs (dados.id_turmas) quanto string de nomes (dados.turmas)
-  const idsTurmasAlvo = new Set(
-    Array.isArray(dados.id_turmas)
-      ? dados.id_turmas.map(Number).filter((id) => Number.isInteger(id) && id > 0)
-      : turmasDisponiveis
-          .filter((t) =>
-            String(dados.turmas || '')
-              .split(',')
-              .map((n) => n.trim())
-              .filter((n) => n && n !== '–')
-              .includes(t.nome)
-          )
-          .map((t) => Number(t.id_turma ?? t.id))
-  );
-
-  if (nomesDisciplinasAlvo.length === 0 || idsTurmasAlvo.size === 0) return;
-
-  // Garante que todas as disciplinas selecionadas existam no banco e coleta seus IDs
-  const idsDisciplinasAlvo = new Set();
+  // Garante que disciplinas novas (caso digitadas/criadas) existam no banco antes de vincular
   for (const nomeDisc of nomesDisciplinasAlvo) {
-    let discObj = disciplinasDisponiveis.find(
+    const existe = disciplinasDisponiveis.some(
       (d) => d.nome.toLowerCase() === nomeDisc.toLowerCase()
     );
-
-    if (!discObj) {
-      const criada = await api('/disciplina', {
+    if (!existe) {
+      await api('/disciplina', {
         metodo: 'POST',
         corpo: { nome: nomeDisc },
       });
-
-      let idDiscCriada = Number(
-        typeof criada === 'number'
-          ? criada
-          : (criada?.id_disciplina ?? criada?.id ?? criada?.dados?.id_disciplina ?? criada?.dados?.id)
-      );
-
-      if (!Number.isInteger(idDiscCriada) || idDiscCriada <= 0) {
-        const resDiscAtualizada = await listarTodos('/disciplina');
-        const listaDiscAtualizada = Array.isArray(resDiscAtualizada)
-          ? resDiscAtualizada
-          : Object.values(resDiscAtualizada || {}).find(Array.isArray) || [];
-
-        const encontrada = listaDiscAtualizada.find(
-          (d) => String(d.nome || '').trim().toLowerCase() === nomeDisc.toLowerCase()
-        );
-        idDiscCriada = Number(encontrada?.id_disciplina ?? encontrada?.id);
-      }
-
-      if (!Number.isInteger(idDiscCriada) || idDiscCriada <= 0) {
-        throw new Error(`A disciplina "${nomeDisc}" não pôde ser vinculada porque o servidor não retornou o ID dela.`);
-      }
-
-      discObj = { id: idDiscCriada, nome: nomeDisc };
-    }
-
-    idsDisciplinasAlvo.add(Number(discObj.id));
-  }
-
-  const vinculosAtuais = professorAtual.vinculos || [];
-
-  // 1. Remove vínculos cuja disciplina ou turma foram desmarcadas.
-  //    O backend recusa (409) se o vínculo já tiver aulas, notas ou tarefas,
-  //    para não apagar o histórico. Esses erros são juntados e mostrados no fim.
-  const naoRemovidos = [];
-  for (const v of vinculosAtuais) {
-    const discMantida = idsDisciplinasAlvo.has(Number(v.id_disciplina));
-    const turmaMantida = idsTurmasAlvo.has(Number(v.id_turma));
-    const idVinculo = v.id_tdp ?? v.id_turma_disciplina_professor ?? v.id;
-    if ((!discMantida || !turmaMantida) && idVinculo) {
-      try {
-        await api(`/turma_disciplina_professor/${idVinculo}`, { metodo: 'DELETE' });
-      } catch (erro) {
-        naoRemovidos.push(erro.message);
-      }
     }
   }
 
-  // 2. Cria todas as combinações (turma x disciplina) recém-selecionadas que ainda não existem
-  const chavesJaVinculadas = new Set(
-    vinculosAtuais.map((v) => `${Number(v.id_turma)}-${Number(v.id_disciplina)}`)
-  );
-
-  for (const idTurma of idsTurmasAlvo) {
-    for (const idDisciplina of idsDisciplinasAlvo) {
-      if (!chavesJaVinculadas.has(`${idTurma}-${idDisciplina}`)) {
-        await api('/turma_disciplina_professor', {
-          metodo: 'POST',
-          corpo: {
-            id_turma: idTurma,
-            id_disciplina: idDisciplina,
-            id_professor: idProf,
-          },
-        });
-      }
-    }
-  }
-
-  if (naoRemovidos.length > 0) {
-    throw new Error(
-      `Dados salvos, mas ${naoRemovidos.length} turma(s) não puderam ser retiradas do professor: ${naoRemovidos[0]}`
-    );
-  }
+  // Envia tudo de uma vez para o backend (ProfessorService -> ProfessorModel.sincronizarVinculosEHorarios)
+  return await api(`/professor/${idProf}`, {
+    metodo: 'PUT',
+    corpo: {
+      nome: dados.nome,
+      cpf: dados.cpf,
+      telefone: dados.telefone || undefined,
+      email: dados.email,
+      disciplinas: nomesDisciplinasAlvo,
+      id_turmas: idsTurmasAlvo,
+      horarios: Array.isArray(dados.horarios) ? dados.horarios : [],
+    },
+  });
 }
 
 export async function excluirProfessorAdmin(idProfessor) {
