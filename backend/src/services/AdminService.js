@@ -9,6 +9,7 @@ import { AppError } from '../utils/AppError.js';
 import { gerarHash } from '../utils/senha.js';
 import { bimestreAtual } from '../utils/bimestre.js';
 import { lerTextos, paraId, validarSenha } from '../utils/validacoes.js';
+import { enviarEmailLembreteNotas } from './GmailAPIService.js';
 
 // bimestre atual: bimestreAtual() de utils/bimestre.js (antes era fixo em 3)
 const PERIODOS = ['Manhã', 'Tarde', 'Noite'];
@@ -237,6 +238,43 @@ export async function excluirProfessor(idRecebido) {
     await c.query('DELETE FROM professores WHERE id_professor = ?', [id]); // FK recusa (409) se ainda der aula
     await UsuarioModel.excluir(p.id_usuario, c);
   });
+}
+
+// Lembrete de notas pendentes: o front manda só o id; quem decide se o professor
+// está atrasado, para qual e-mail enviar e o que listar é o servidor.
+export async function enviarLembreteProfessor(idRecebido) {
+  const id = paraId(idRecebido);
+  const professor = await buscarProfessor(id);
+
+  if (professor.situacao !== 'atrasado') {
+    throw new AppError('Este professor não tem notas pendentes neste bimestre.', 409);
+  }
+
+  const bimestre = bimestreAtual();
+  const pendencias = await q(
+    `SELECT d.nome AS disciplina, t.nome AS turma
+       FROM turma_disciplina_professor x
+       JOIN disciplinas d ON d.id_disciplina = x.id_disciplina
+       JOIN turmas t ON t.id_turma = x.id_turma
+      WHERE x.id_professor = ?
+        AND NOT EXISTS (SELECT 1 FROM avaliacoes av JOIN notas n ON n.id_avaliacao = av.id_avaliacao
+                         WHERE av.id_tdp = x.id AND av.bimestre = ?)
+      ORDER BY t.nome, d.nome`,
+    [id, bimestre]);
+
+  try {
+    await enviarEmailLembreteNotas({
+      to: professor.email,
+      nome: professor.nome,
+      bimestre,
+      pendencias,
+    });
+  } catch (erro) {
+    console.error('Erro ao enviar lembrete:', erro);
+    throw new AppError('Não foi possível enviar o e-mail agora. Tente novamente.', 502);
+  }
+
+  return { mensagem: `Lembrete enviado para ${professor.nome}.` };
 }
 
 // ---------- administradores ----------

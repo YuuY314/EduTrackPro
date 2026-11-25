@@ -691,6 +691,13 @@ export async function excluirProfessorAdmin(idProfessor) {
   });
 }
 
+// Envia por e-mail o lembrete de notas pendentes (o servidor confere a situação do professor).
+export async function enviarLembreteProfessor(idProfessor) {
+  return await api(`/admin/professores/${idProfessor}/lembrete`, {
+    metodo: 'POST',
+  });
+}
+
 // ==================== Administrador: Turmas ====================
 //chamadas simultâneas para fazer quatro requisições buscando os indicadores exigidos pela tabelada secretaria
 export async function listarTurmasAdmin() {

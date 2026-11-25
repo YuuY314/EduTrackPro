@@ -46,27 +46,29 @@ function escaparHTML(valor = '') {
         .replace(/'/g, '&#39;');
 }
 
-async function gerarTemplateRecuperacao({ nome, link, validade, logoUrl }) {
-    const caminhoTemplate = path.resolve(
-        __dirname,
-        '../templates/recuperarSenha.html'
-    );
+// Lê templates/<arquivo>, escapa as variáveis e troca cada {{chave}}.
+// "cruas" são trechos de HTML montados aqui no servidor (já escapados)
+// e que, por isso, não podem ser escapados de novo.
+async function renderizarTemplate(arquivo, variaveis, cruas = {}) {
+    const caminhoTemplate = path.resolve(__dirname, '../templates', arquivo);
 
     let html = await fs.readFile(caminhoTemplate, 'utf8');
 
-    const variaveis = {
-        nome: escaparHTML(nome),
-        link: escaparHTML(link),
-        validade: escaparHTML(validade),
-        logoUrl: escaparHTML(logoUrl),
-        ano: new Date().getFullYear()
-    };
+    const todas = { ano: new Date().getFullYear(), ...variaveis };
 
-    for (const [chave, valor] of Object.entries(variaveis)) {
-        html = html.replaceAll(`{{${chave}}}`, String(valor));
+    for (const [chave, valor] of Object.entries(todas)) {
+        html = html.replaceAll(`{{${chave}}}`, escaparHTML(valor));
+    }
+
+    for (const [chave, valor] of Object.entries(cruas)) {
+        html = html.replaceAll(`{{${chave}}}`, valor);
     }
 
     return html;
+}
+
+async function gerarTemplateRecuperacao({ nome, link, validade, logoUrl }) {
+    return renderizarTemplate('recuperarSenha.html', { nome, link, validade, logoUrl });
 }
 
 export async function enviarEmailRecuperacao({
@@ -103,5 +105,39 @@ export async function enviarEmailRecuperacao({
         subject: 'Redefinição de senha - EduTrackPro',
         html,
         text: `Olá, ${nome}. Acesse ${link.toString()} para redefinir sua senha. O link expira em ${validade}.`
+    });
+}
+
+// Lembrete de notas pendentes (botão "Enviar lembrete" da área do admin).
+// pendencias: [{ disciplina, turma }]
+export async function enviarEmailLembreteNotas({ to, nome, bimestre, pendencias }) {
+    const frontendUrl = process.env.FRONTEND_URL;
+    const logoUrl = process.env.LOGO_URL;
+
+    if (!frontendUrl || !logoUrl) {
+        throw new Error('FRONTEND_URL ou LOGO_URL não configurada.');
+    }
+
+    const link = new URL('/professor/notas', frontendUrl).toString();
+
+    const itens = pendencias
+        .map((p) => `<li style="margin:0 0 4px;">${escaparHTML(p.disciplina)} &ndash; turma ${escaparHTML(p.turma)}</li>`)
+        .join('');
+
+    const html = await renderizarTemplate(
+        'lembreteNotas.html',
+        { nome, bimestre, link, logoUrl },
+        { listaPendencias: `<ul style="margin:0; padding-left:20px;">${itens}</ul>` }
+    );
+
+    const textoPendencias = pendencias
+        .map((p) => `- ${p.disciplina} (turma ${p.turma})`)
+        .join('\n');
+
+    return enviar({
+        to,
+        subject: `Lembrete: notas do ${bimestre}º bimestre - EduTrackPro`,
+        html,
+        text: `Olá, ${nome}. Ainda faltam notas do ${bimestre}º bimestre:\n${textoPendencias}\nLance em ${link}`
     });
 }
