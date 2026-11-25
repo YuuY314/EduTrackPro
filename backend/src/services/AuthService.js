@@ -14,8 +14,10 @@ import { OAuth2Client } from 'google-auth-library';
 import * as UsuarioModel from '../models/UsuarioModel.js';
 import { AppError } from '../utils/AppError.js';
 import { gerarHash, senhaConfere } from '../utils/senha.js';
-import { gerarToken } from '../utils/token.js';
+import { gerarToken, verificarTokenRecuperacao, gerarTokenRecuperacao, impressaoSenha } from '../utils/token.js';
 import { ambiente } from '../config/ambiente.js';
+
+import { enviarEmailRecuperacao } from './GmailAPIService.js';
 
 const PERFIS_VALIDOS = ['aluno', 'professor', 'admin'];
 
@@ -114,3 +116,72 @@ export async function loginGoogle(idToken, perfil) {
   const token = gerarToken(usuario);
   return { token, usuario: dadosPublicos(usuario) };
 }
+
+// =====================================================================
+// RECUPERAÇÃO DE SENHA
+// =====================================================================
+
+const MENSAGEM_RECUPERACAO =
+  'Se existir uma conta vinculada aos dados informados, enviaremos um link de recuperação.';
+
+// POST /api/auth/recuperar-senha { login }
+export async function solicitarRecuperacaoSenha({ login } = {}) {
+  if (typeof login !== 'string' || !login.trim()) {
+    throw new AppError('Informe seu e-mail ou RA.', 400);
+  }
+
+  const usuario = await UsuarioModel.buscarParaLogin(login.trim());
+
+  // Não revela se a conta existe.
+  if (!usuario) {
+    return { mensagem: MENSAGEM_RECUPERACAO };
+  }
+
+  const token = gerarTokenRecuperacao(usuario.id_usuario, usuario.senha_hash);
+
+  try {
+    await enviarEmailRecuperacao({
+      to: usuario.email,
+      nome: usuario.nome,
+      token,
+      validade: '30 minutos',
+    });
+  } catch (erro) {
+    console.error('Erro ao enviar e-mail de recuperação:', erro);
+  }
+
+  return { mensagem: MENSAGEM_RECUPERACAO };
+}
+
+// POST /api/auth/redefinir-senha { token, senha }
+export async function redefinirSenha({ token, senha } = {}) {
+  if (typeof token !== 'string' || !token.trim()) {
+    throw new AppError('Link de recuperação inválido ou expirado.', 400);
+  }
+
+  // mesmo mínimo do cadastro (8)
+  if (typeof senha !== 'string' || senha.length < 8) {
+    throw new AppError('A senha deve possuir pelo menos 8 caracteres.', 400);
+  }
+
+  const payload = verificarTokenRecuperacao(token);
+
+  const usuario = await UsuarioModel.buscarPorId(payload.sub);
+
+  if (!usuario) {
+    throw new AppError('Usuário não encontrado.', 404);
+  }
+
+  // Link já usado (a senha mudou depois que ele foi gerado) ou gerado antes desta regra
+  if (payload.ph !== impressaoSenha(usuario.senha_hash)) {
+    throw new AppError('Link de recuperação inválido ou expirado.', 400);
+  }
+
+  const senhaHash = await gerarHash(senha);
+
+  await UsuarioModel.atualizarSenha(usuario.id_usuario, senhaHash);
+
+  return {
+    mensagem: 'Senha redefinida com sucesso.',
+  };
+}

@@ -38,7 +38,7 @@ export async function criar(responsavel) {
   const sql = 'INSERT INTO responsaveis (nome, cpf, telefone, email, parentesco) VALUES (?, ?, ?, ?, ?)';
   const valores = [responsavel.nome, responsavel.cpf, responsavel.telefone, responsavel.email, responsavel.parentesco];
   const [resultado] = await pool.query(sql, valores);
-  return { ...responsavel, id: resultado.insertId, imagem_url: null };
+  return { ...responsavel, id_responsavel: resultado.insertId, id: resultado.insertId };
 }
 
 // 4. Atualização completa (PUT)

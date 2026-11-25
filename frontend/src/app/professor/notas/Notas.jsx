@@ -1,19 +1,131 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Etiqueta from '@/src/components/Etiqueta';
-import { notasDaTurma, turmas } from '@/src/lib/dados';
-import { corDaNota, media } from '@/src/lib/utils';
+import { api, lerSessao } from '@/src/lib/api';
+import { bimestreAtual, corDaNota, media, PESOS_AVALIACOES } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
 
+const bimestres = [
+  { value: '3', label: '3º Bimestre' },
+  { value: '4', label: '4º Bimestre' },
+];
+
 export default function Notas() {
-  const [linhas, setLinhas] = useState(
-    notasDaTurma.map((l) => ({ ...l, notas: l.notas.map((n) => n ?? '') }))
-  );
+  const searchParams = useSearchParams();
+  const turmaUrl = searchParams.get('turma');
+
+  const [turmasProf, setTurmasProf] = useState([]);
+  const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
+  // const [bimestre, setBimestre] = useState('3');
+
+  const [linhas, setLinhas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
+  // abre no bimestre atual (se ele estiver na lista)
+  const [bimestre, setBimestre] = useState(
+    () => bimestres.find((b) => b.value === String(bimestreAtual()))?.value ?? bimestres[0].value
+  );
+
+  useEffect(() => {
+    const sessao = lerSessao();
+    const idProfessor = sessao?.usuario?.id_professor;
+
+    if (!idProfessor) {
+      setCarregando(false);
+      return;
+    }
+
+    api(`/turma_disciplina_professor/professor/${idProfessor}`)
+      .then((res) => {
+        const lista = res?.dados || [];
+        setTurmasProf(lista);
+
+        if (lista.length > 0) {
+          const encontrada = turmaUrl
+            ? lista.find(
+                (t) =>
+                  String(t.id_turma) === String(turmaUrl) ||
+                  String(t.id_tdp || t.id) === String(turmaUrl)
+              )
+            : null;
+          const escolhida = encontrada || lista[0];
+          setIdTdpSelecionado(String(escolhida.id_tdp || escolhida.id));
+        } else {
+          setCarregando(false);
+        }
+      })
+      .catch(() => {
+        setMensagem('Erro ao carregar turmas do professor.');
+        setCarregando(false);
+      });
+  }, [turmaUrl]);
+
+  useEffect(() => {
+    if (!idTdpSelecionado || !bimestre) return;
+
+    const turmaAtual = turmasProf.find(
+      (t) => String(t.id_tdp || t.id) === String(idTdpSelecionado)
+    );
+    if (!turmaAtual) return;
+
+    setCarregando(true);
+    setMensagem('');
+
+    Promise.all([
+      api(`/aluno?id_turma=${turmaAtual.id_turma}&limite=100`),
+      api(`/nota/boletim?id_tdp=${idTdpSelecionado}&bimestre=${bimestre}`).catch(() => ({
+        dados: { avaliacoes: [], notas: [] },
+      })),
+    ])
+      .then(([resAlunos, resBoletim]) => {
+        const listaAlunos = resAlunos?.dados || [];
+        const avalsBanco = resBoletim?.dados?.avaliacoes || [];
+        const notasBanco = resBoletim?.dados?.notas || [];
+
+        // Mapeia id_avaliacao para o índice 0, 1 ou 2 ('Prova 1', 'Prova 2', 'Trabalho')
+        const indicePorIdAval = new Map();
+        avalsBanco.forEach((a) => {
+          const idx = avaliacoes.indexOf(a.titulo);
+          if (idx !== -1) indicePorIdAval.set(a.id_avaliacao, idx);
+        });
+
+        const linhasMontadas = listaAlunos.map((aluno) => {
+          const notasAluno = ['', '', ''];
+          notasBanco
+            .filter((n) => Number(n.id_aluno) === Number(aluno.id_aluno))
+            .forEach((n) => {
+              const idx = indicePorIdAval.get(n.id_avaliacao);
+              if (idx !== undefined) {
+                notasAluno[idx] = String(n.valor);
+              }
+            });
+
+          return {
+            id_aluno: aluno.id_aluno,
+            aluno: aluno.nome,
+            notas: notasAluno,
+          };
+        });
+
+        setLinhas(linhasMontadas);
+      })
+      .catch(() => {
+        setMensagem('Erro ao carregar alunos e notas.');
+      })
+      .finally(() => {
+        setCarregando(false);
+      });
+  }, [idTdpSelecionado, bimestre, turmasProf]);
 
   function mudarNota(indiceAluno, indiceNota, valor) {
+    if (valor !== '' && (Number(valor) < 0 || Number(valor) > 10)) {
+      setMensagem('A nota deve estar entre 0 e 10.');
+      return;
+    }
     const novas = [...linhas];
     novas[indiceAluno] = { ...novas[indiceAluno], notas: [...novas[indiceAluno].notas] };
     novas[indiceAluno].notas[indiceNota] = valor;
@@ -21,9 +133,40 @@ export default function Notas() {
     setMensagem('');
   }
 
-  function salvar() {
-    const emBranco = linhas.filter((l) => media(l.notas) === null).length;
-    setMensagem(emBranco ? `Notas salvas · ${emBranco} aluno(s) com nota em branco` : 'Notas salvas');
+  async function salvar() {
+    if (!idTdpSelecionado || linhas.length === 0) return;
+
+    setSalvando(true);
+    setMensagem('');
+
+    try {
+      const registros = linhas.map((l) => ({
+        id_aluno: l.id_aluno,
+        notas: l.notas,
+      }));
+
+      await api('/nota/boletim', {
+        metodo: 'POST',
+        corpo: {
+          id_tdp: Number(idTdpSelecionado),
+          bimestre: Number(bimestre),
+          titulos: avaliacoes,
+          registros,
+        },
+      });
+
+      const emBranco = linhas.filter((l) => media(l.notas, PESOS_AVALIACOES) === null).length;
+      const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setMensagem(
+        emBranco
+          ? `Notas salvas às ${hora} · ${emBranco} aluno(s) com nota em branco`
+          : `Notas salvas às ${hora}`
+      );
+    } catch (erro) {
+      setMensagem(erro.message || 'Erro ao salvar notas.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
   return (
@@ -31,17 +174,32 @@ export default function Notas() {
       <div className="filtros">
         <div className="campo largo">
           <label htmlFor="turma">Turma</label>
-          <select id="turma">
-            {turmas.map((t) => (
-              <option key={t.id} value={t.id}>{t.nome} · {t.turno}</option>
-            ))}
+          <select 
+          id="turma"
+          value={idTdpSelecionado}
+          onChange={(e) => setIdTdpSelecionado(e.target.value)}
+          disabled={turmasProf.length === 0}
+          >
+            {turmasProf.map((t) => {
+              const idOpcao = t.id_tdp || t.id;
+              const nomeTurma = t.turma || t.nome_turma || t.nome || 'Turma';
+              const turnoTurma = t.turno || t.periodo || '';
+              const materia = t.disciplina || t.nome_disciplina || '';
+              return (
+                <option key={idOpcao} value={idOpcao}>
+                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}{materia ? ` — ${materia}` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
         <div className="campo">
           <label htmlFor="bimestre">Bimestre</label>
-          <select id="bimestre">
-            <option>3º Bimestre</option>
-            <option>4º Bimestre</option>
+          <select id="bimestre" value={bimestre} onChange={(e) => setBimestre(e.target.value)}>
+            <option value="1">1º Bimestre</option>
+            <option value="2">2º Bimestre</option>
+            <option value="3">3º Bimestre</option>
+            <option value="4">4º Bimestre</option>
           </select>
         </div>
       </div>
@@ -57,41 +215,56 @@ export default function Notas() {
               </tr>
             </thead>
             <tbody>
-              {linhas.map((linha, i) => {
-                const m = media(linha.notas);
-                return (
-                  <tr key={linha.aluno}>
-                    <td>{linha.aluno}</td>
-                    {linha.notas.map((nota, j) => (
-                      <td key={j} className="centro">
-                        <input
-                          className="campo-nota"
-                          type="number"
-                          min="0"
-                          max="10"
-                          step="0.5"
-                          value={nota}
-                          aria-label={`${linha.aluno} – ${avaliacoes[j]}`}
-                          onChange={(e) => mudarNota(i, j, e.target.value)}
-                        />
+              {carregando ? (
+                <tr>
+                  <td colSpan={avaliacoes.length + 2}>Carregando alunos e notas...</td>
+                </tr>
+              ) : linhas.length === 0 ? (
+                <tr>
+                  <td colSpan={avaliacoes.length + 2}>Nenhum aluno encontrado nesta turma.</td>
+                </tr>
+              ) : (
+                linhas.map((linha, i) => {
+                  const m = media(linha.notas, PESOS_AVALIACOES);
+                  return (
+                    <tr key={linha.id_aluno}>
+                      <td>{linha.aluno}</td>
+                      {linha.notas.map((nota, j) => (
+                        <td key={j} className="centro">
+                          <input
+                            className="campo-nota"
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="0.5"
+                            value={nota}
+                            aria-label={`${linha.aluno} – ${avaliacoes[j]}`}
+                            onKeyDown={(e) => {
+                              if (['e', 'E', '+', '-'].includes(e.key)) {
+                                e.preventDefault();
+                              }
+                            }}
+                            onChange={(e) => mudarNota(i, j, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                      <td className="centro">
+                        <Etiqueta cor={corDaNota(m)}>{m === null ? '–' : m.toFixed(1)}</Etiqueta>
                       </td>
-                    ))}
-                    <td className="centro">
-                      <Etiqueta cor={corDaNota(m)}>{m === null ? '–' : m.toFixed(1)}</Etiqueta>
-                    </td>
-                  </tr>
-                );
-              })}
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="cartao-rodape">
-          <span className="dica">Média = (Prova 1 + Prova 2 + Trabalho) ÷ 3</span>
+          <span className="dica">Média = Prova 1 × 40% + Prova 2 × 30% + Trabalho × 30%</span>
           <span className="mensagem" role="status">{mensagem}</span>
-          <button className="botao" onClick={salvar}>Salvar notas</button>
+          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || linhas.length === 0}>{salvando ? 'Salvando...' : 'Salvar notas'}</button>
         </div>
       </div>
     </>
   );
-}
+}

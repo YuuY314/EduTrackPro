@@ -1,4 +1,5 @@
 import * as TurmaDisciplinaProfessorService from '../services/TurmaDisciplinaProfessorService.js';
+import { AppError } from '../utils/AppError.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -18,6 +19,25 @@ export async function listar(req, res, next) {
       sucesso: true,
       dados: resultado.turma_disciplina_professor,
       paginacao: resultado.paginacao
+    });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
+
+export async function listarPorProfessor(req, res, next) {
+  try {
+    // Professor só vê as próprias turmas (o id vem do token, não da URL).
+    if (
+      req.usuario.perfil === 'professor' &&
+      Number(req.params.idProfessor) !== Number(req.usuario.id_professor)
+    ) {
+      throw new AppError('Você só pode consultar as suas próprias turmas.', 403);
+    }
+    const turmas = await TurmaDisciplinaProfessorService.listarPorProfessor(req.params.idProfessor);
+    return res.status(200).json({
+      sucesso: true,
+      dados: turmas
     });
   } catch (erro) {
     return responderErro(erro, res, next);

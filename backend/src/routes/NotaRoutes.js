@@ -1,23 +1,25 @@
-import express from 'express';
+// =====================================================================
+// routes/NotaRoutes.js - /api/nota
+// Boletim da turma: equipe (o controller confere se o professor leciona
+// no id_tdp). CRUD avulso de notas: só admin.
+// IMPORTANTE: /boletim vem ANTES de /:id.
+// =====================================================================
+
+import { Router } from 'express';
 import * as NotaController from '../controllers/NotaController.js';
-// import { uploadImagem } from '../middlewares/UploadMiddleware.js';
+import { autenticar, exigirPerfil } from '../middlewares/autenticar.js';
 
-// Middlewares de autenticação (serão ativados na Sessão 2)
-// Inicialmente passam direto para não travar a Sessão 1
-let autenticar = (_req, _res, next) => next();
-let autorizarAdmin = (_req, _res, next) => next();
+export const notaRouter = Router();
+notaRouter.use(autenticar);
 
-export const notaRouter = express.Router();
+const equipe = exigirPerfil('admin', 'professor');
+const somenteAdmin = exigirPerfil('admin');
 
-notaRouter.get('/', NotaController.listar);
-notaRouter.get('/:id', NotaController.buscarPorId);
-notaRouter.post('/', (req, res, next) => autenticar(req, res, next), NotaController.criar);
-notaRouter.put('/:id', (req, res, next) => autenticar(req, res, next), NotaController.atualizar);
-// notaRouter.patch('/:id/imagem', (req, res, next) => autenticar(req, res, next), uploadImagem, NotaController.enviarImagem);
-notaRouter.delete('/:id', (req, res, next) => autenticar(req, res, next), (req, res, next) => autorizarAdmin(req, res, next), NotaController.excluir);
+notaRouter.get('/boletim', equipe, NotaController.buscarBoletim);
+notaRouter.post('/boletim', equipe, NotaController.salvarBoletim);
 
-export function configurarSegurancaNotas(middlewareAuth, middlewareAdmin) {
-  // Substitui os middlewares provisórios da Sessão 1 pelos middlewares reais.
-  if (middlewareAuth) autenticar = middlewareAuth;
-  if (middlewareAdmin) autorizarAdmin = middlewareAdmin;
-}
+notaRouter.get('/', somenteAdmin, NotaController.listar);
+notaRouter.get('/:id', somenteAdmin, NotaController.buscarPorId);
+notaRouter.post('/', somenteAdmin, NotaController.criar);
+notaRouter.put('/:id', somenteAdmin, NotaController.atualizar);
+notaRouter.delete('/:id', somenteAdmin, NotaController.excluir);

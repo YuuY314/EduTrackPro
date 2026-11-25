@@ -1,48 +1,228 @@
 'use client';
 
-import { useState } from 'react';
-import { alunosDaTurma, turmas } from '@/src/lib/dados';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { api, lerSessao, listarTodos } from '@/src/lib/api';
+import { hojeLocalISO } from '@/src/lib/utils';
+
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+function obterDiaSemana(dataStr) {
+  if (!dataStr) return null;
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  const dataObj = new Date(ano, mes - 1, dia);
+  return DIAS_SEMANA[dataObj.getDay()];
+}
 
 export default function Chamada() {
-  const [faltas, setFaltas] = useState(['Eduarda Lima']);
+  const SearchParams = useSearchParams();
+  const turmaUrl = SearchParams.get('turma');
+
+  const [turmasProf, setTurmasProf] = useState([]);
+  const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
+  // data local (toISOString usaria UTC e, depois das 21h, mostraria o dia seguinte)
+  const [dataAula, setDataAula] = useState(() => hojeLocalISO());
+  const [horariosTdp, setHorariosTdp] = useState([]);
+  // id do horário da grade (horarios_aula.id): cada horário do dia tem a sua chamada
+  const [aulaSelecionada, setAulaSelecionada] = useState('');
+  const [alunos, setAlunos] = useState([]);
+  const [faltasIds, setFaltasIds] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
 
-  function alternar(aluno) {
-    setMensagem('');
-    if (faltas.includes(aluno)) {
-      setFaltas(faltas.filter((nome) => nome !== aluno));
+  useEffect(() => {
+    const sessao = lerSessao();
+    const idProfessor = sessao?.usuario?.id_professor;
+
+    if (!idProfessor) {
+      setCarregando(false);
+      return;
+    }
+
+    api(`/turma_disciplina_professor/professor/${idProfessor}`)
+      .then((res) => {
+        const lista = res?.dados || [];
+        setTurmasProf(lista);
+
+        if (lista.length > 0) {
+          const encontrada = turmaUrl
+            ? lista.find((t) => String(t.id_turma) === String(turmaUrl) || String(t.id_tdp || t.id) === String(turmaUrl))
+            : null;
+            const escolhida = encontrada || lista[0];
+          setIdTdpSelecionado(String(escolhida.id_tdp || escolhida.id));
+        } else {
+          setCarregando(false);
+        }
+      })
+      .catch(() => {
+        setMensagem('Erro ao carregar turmas do professor.');
+        setCarregando(false);
+      });
+  }, [turmaUrl]);
+
+  useEffect(() => {
+    if (!idTdpSelecionado) return;
+
+    api(`/frequencia/horarios/${idTdpSelecionado}`)
+      .then((res) => {
+        setHorariosTdp(res?.dados || []);
+      })
+      .catch(() => {
+        setHorariosTdp([]);
+      });
+  }, [idTdpSelecionado]);
+
+  const opcoesAula = useMemo(() => {
+    if (horariosTdp.length === 0) return [];
+    const diaDaData = obterDiaSemana(dataAula);
+    const doDia = horariosTdp.filter((h) => h.dia_semana === diaDaData);
+    // sem aula na grade nesse dia (ex.: reposição): oferece todos os horários da turma
+    const listaBase = doDia.length > 0 ? doDia : horariosTdp;
+
+    return listaBase.map((h, index) => ({
+      id: String(h.id),
+      rotulo: doDia.length > 0
+        ? `${index + 1}ª aula · ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`
+        : `${h.dia_semana} ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`,
+    }));
+  }, [horariosTdp, dataAula]);
+
+  useEffect(() => {
+    if (opcoesAula.length > 0) {
+      const aindaExiste = opcoesAula.some((o) => o.id === aulaSelecionada);
+      if (!aindaExiste) {
+        setAulaSelecionada(opcoesAula[0].id);
+      }
     } else {
-      setFaltas([...faltas, aluno]);
+      setAulaSelecionada('');
+    }
+  }, [opcoesAula, aulaSelecionada]);
+
+  // Carrega alunos + a chamada já salva daquele dia E daquele horário
+  useEffect(() => {
+    if (!idTdpSelecionado || !dataAula) return;
+
+    const turmaAtual = turmasProf.find((t) => String(t.id_tdp || t.id) === String(idTdpSelecionado));
+    if (!turmaAtual) return;
+
+    let ativo = true; // ignora respostas antigas se o professor trocar de turma/data/aula rápido
+    setCarregando(true);
+    setMensagem('');
+
+    const filtroHorario = aulaSelecionada ? `&id_horario=${aulaSelecionada}` : '';
+    Promise.all([
+      listarTodos(`/aluno?id_turma=${turmaAtual.id_turma}`),
+      api(`/frequencia/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}${filtroHorario}`).catch(() => ({ dados: null })),
+    ])
+      .then(([listaAlunos, resChamada]) => {
+        if (!ativo) return;
+        setAlunos(listaAlunos);
+
+        const chamadaExistente = resChamada?.dados;
+        if (chamadaExistente?.aula) {
+          const idsFaltosos = (chamadaExistente.frequencias || [])
+            .filter((f) => Number(f.presente) === 0)
+            .map((f) => f.id_aluno);
+          setFaltasIds(idsFaltosos);
+        } else {
+          setFaltasIds([]);
+        }
+      })
+      .catch(() => {
+        if (ativo) setMensagem('Erro ao carregar lista de alunos.');
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [idTdpSelecionado, dataAula, turmasProf, aulaSelecionada]);
+
+  function alternar(idAluno) {
+    setMensagem('');
+    if (faltasIds.includes(idAluno)) {
+      setFaltasIds(faltasIds.filter((id) => id !== idAluno));
+    } else {
+      setFaltasIds([...faltasIds, idAluno]);
     }
   }
 
-  function salvar() {
-    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    setMensagem(`Chamada salva às ${hora}`);
+  async function salvar() {
+    if (!idTdpSelecionado || alunos.length === 0) return;
+
+    setSalvando(true);
+    setMensagem('');
+
+    try {
+      const registros = alunos.map((aluno) => ({
+        id_aluno: aluno.id_aluno,
+        presente: faltasIds.includes(aluno.id_aluno) ? 0 : 1,
+        justificativa: null,
+      }));
+
+      await api('/frequencia/chamada', {
+        metodo: 'POST',
+        corpo: {
+          id_tdp: Number(idTdpSelecionado),
+          id_horario: aulaSelecionada ? Number(aulaSelecionada) : null,
+          data: dataAula,
+          registros,
+        },
+      });
+
+      const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setMensagem(`Chamada salva às ${hora}`);
+    } catch (erro) {
+      setMensagem(erro.message || 'Erro ao salvar chamada.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
-  const presentes = alunosDaTurma.length - faltas.length;
+  const presentes = alunos.length - faltasIds.length;
 
   return (
     <>
       <div className="filtros">
         <div className="campo largo">
           <label htmlFor="turma">Turma</label>
-          <select id="turma">
-            {turmas.map((t) => (
-              <option key={t.id} value={t.id}>{t.nome} · {t.turno}</option>
-            ))}
+          <select 
+            id="turma"
+            value={idTdpSelecionado}
+            onChange={(e) => setIdTdpSelecionado(e.target.value)}
+            disabled={turmasProf.length === 0}
+          >
+            {turmasProf.map((t) => {
+              const idOpcao = t.id_tdp || t.id;
+              const nomeTurma = t.turma || t.nome_turma || t.nome || 'Turma';
+              const turnoTurma = t.turno || t.periodo || '';
+              return (
+                <option key={idOpcao} value={idOpcao}>
+                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
         <div className="campo">
           <label htmlFor="data">Data</label>
-          <input id="data" type="date" defaultValue="2026-10-26" />
+          <input id="data" type="date" value={dataAula} onChange={(e) => setDataAula(e.target.value)} />
         </div>
         <div className="campo">
           <label htmlFor="aula">Aula</label>
-          <select id="aula">
-            <option>1ª aula · 19:00</option>
-            <option>2ª aula · 19:50</option>
+          <select id="aula" value={aulaSelecionada} onChange={(e) => setAulaSelecionada(e.target.value)} disabled={opcoesAula.length === 0}>
+            {opcoesAula.length === 0 ? (
+              <option value="">Sem horário cadastrado</option>
+            ) : (
+              opcoesAula.map((opcao) => (
+                <option key={opcao.id} value={opcao.id}>
+                  {opcao.rotulo}
+                </option>
+              ))
+            )}
           </select>
         </div>
       </div>
@@ -58,36 +238,47 @@ export default function Chamada() {
               </tr>
             </thead>
             <tbody>
-              {alunosDaTurma.map((aluno, i) => {
-                const faltou = faltas.includes(aluno);
-                return (
-                  <tr key={aluno}>
-                    <td>{String(i + 1).padStart(2, '0')}</td>
-                    <td>{aluno}</td>
-                    <td className="centro">
-                      <button
-                        className={`botao-presenca ${faltou ? 'falta' : ''}`}
-                        onClick={() => alternar(aluno)}
-                      >
-                        {faltou ? 'Falta' : 'Presente'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {carregando ? (
+                <tr>
+                  <td colSpan="3">Carregando alunos...</td>
+                </tr>
+              ) : alunos.length === 0 ? (
+                <tr>
+                  <td colSpan="3">Nenhum aluno encontrado nesta turma.</td>
+                </tr>
+              ) : (
+                alunos.map((aluno, i) => {
+                  const faltou = faltasIds.includes(aluno.id_aluno);
+                  return (
+                    <tr key={aluno.id_aluno}>
+                      <td>{String(i + 1).padStart(2, '0')}</td>
+                      <td>{aluno.nome}</td>
+                      <td className="centro">
+                        <button
+                          type="button"
+                          className={`botao-presenca ${faltou ? 'falta' : ''}`}
+                          onClick={() => alternar(aluno.id_aluno)}
+                        >
+                          {faltou ? 'Falta' : 'Presente'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="cartao-rodape">
           <span>
-            <strong>{presentes}</strong> presentes · <strong>{faltas.length}</strong>{' '}
-            {faltas.length === 1 ? 'falta' : 'faltas'}
+          <strong>{presentes}</strong> presentes · <strong>{faltasIds.length}</strong>{' '}
+            {faltasIds.length === 1 ? 'falta' : 'faltas'}
           </span>
           <span className="mensagem" role="status">{mensagem}</span>
-          <button className="botao" onClick={salvar}>Salvar chamada</button>
+          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || alunos.length === 0}>{salvando ? 'Salvando...' : 'Salvar chamada'}</button>
         </div>
       </div>
     </>
   );
-}
+}

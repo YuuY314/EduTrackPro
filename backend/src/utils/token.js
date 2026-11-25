@@ -11,6 +11,7 @@
 // Nunca coloque senha ou dado sensível no payload.
 // =====================================================================
 
+import { createHash } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
 import { ambiente } from '../config/ambiente.js';
@@ -33,9 +34,59 @@ export function gerarToken(usuario, { lembrar = false } = {}) {
 // Devolve o payload se o token for válido; senão lança 401.
 export function verificarToken(token) {
   try {
-    return jwt.verify(token, ambiente.jwtSegredo, { algorithms: ['HS256'] });
+    const payload = jwt.verify(token, ambiente.jwtSegredo, {
+      algorithms: ['HS256'],
+    });
+
+    if (payload.purpose === 'password_reset' || !payload.perfil) {
+      throw new Error('Token não é de autenticação.');
+    }
+
+    return payload;
   } catch {
-    // adulterado, malformado ou vencido: para o cliente é tudo "inválido"
-    throw new AppError('Sessão inválida ou expirada. Faça login novamente.', 401);
+    throw new AppError(
+      'Sessão inválida ou expirada. Faça login novamente.',
+      401
+    );
   }
 }
+
+// "Impressão digital" curta do hash da senha atual. Vai dentro do token de
+// recuperação: quando a senha muda, o hash muda e o link antigo deixa de valer
+// (o link só pode ser usado UMA vez). Não revela a senha nem o hash.
+export function impressaoSenha(senhaHash) {
+  return createHash('sha256').update(String(senhaHash)).digest('hex').slice(0, 16);
+}
+
+// Gera um JWT exclusivo para recuperação de senha.
+export function gerarTokenRecuperacao(idUsuario, senhaHash) {
+  return jwt.sign(
+    {
+      sub: idUsuario,
+      purpose: 'password_reset',
+      ph: impressaoSenha(senhaHash),
+    },
+    ambiente.jwtSegredo,
+    {
+      expiresIn: '30m',
+      algorithm: 'HS256',
+    }
+  );
+}
+
+// Verifica se o JWT é válido e se sua finalidade é recuperação.
+export function verificarTokenRecuperacao(token) {
+  try {
+    const payload = jwt.verify(token, ambiente.jwtSegredo, {
+      algorithms: ['HS256'],
+    });
+
+    if (payload.purpose !== 'password_reset' || !payload.sub) {
+      throw new Error('Finalidade inválida.');
+    }
+
+    return payload;
+  } catch {
+    throw new AppError('Link de recuperação inválido ou expirado.', 400);
+  }
+}

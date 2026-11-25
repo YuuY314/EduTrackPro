@@ -44,13 +44,13 @@ export async function buscarPorId(idRecebido) {
 }
 
 export async function criar(dados) {
-  const aulaDominio = new Aula({ id: 1, ...dados });
+  const aulaDominio = new Aula({ id_aula: 1, ...dados });
   return await AulaModel.criar(aulaDominio);
 }
 
 export async function atualizar(idRecebido, dados) {
   const id = validarId(idRecebido);
-  const aulaDominio = new Aula({ id, ...dados });
+  const aulaDominio = new Aula({ id_aula: id, ...dados });
   const atualizou = await AulaModel.atualizar(id, aulaDominio);
   if (!atualizou) {
     throw new Error(`Aula ${id} não encontrado.`);

@@ -15,10 +15,25 @@ const SELECT_ALUNO = `
     JOIN turmas       t ON t.id_turma       = a.id_turma
     JOIN responsaveis r ON r.id_responsavel = a.id_responsavel`;
 
-export async function listar({ limite, offset }) {
-  // LIMIT/OFFSET com "?" exigem query() em vez de execute() no mysql2
-  const [linhas] = await pool.query(`${SELECT_ALUNO} ORDER BY a.nome LIMIT ? OFFSET ?`, [limite, offset]);
-  const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM alunos');
+export async function listar({ limite, offset, id_turma }) {
+  const filtros = [];
+  const params = [];
+
+  if (id_turma) {
+    filtros.push('a.id_turma = ?');
+    params.push(Number(id_turma));
+  }
+
+  const where = filtros.length ? `WHERE ${filtros.join(' AND ')}` : '';
+
+  const [linhas] = await pool.query(
+    `${SELECT_ALUNO} ${where} ORDER BY a.nome LIMIT ? OFFSET ?`,
+    [...params, limite, offset]
+  );
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total FROM alunos a ${where}`,
+    params
+  );
   return { alunos: linhas, total };
 }
 

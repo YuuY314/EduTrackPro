@@ -1,4 +1,5 @@
 import * as NotaService from '../services/NotaService.js';
+import { garantirAcessoTdp } from '../utils/permissoes.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -74,3 +75,23 @@ export async function excluir(req, res, next) {
     return responderErro(erro, res, next);
   }
 }
+
+export async function buscarBoletim(req, res, next) {
+  try {
+    await garantirAcessoTdp(req.usuario, req.query.id_tdp);
+    const dados = await NotaService.buscarBoletim(req.query.id_tdp, req.query.bimestre);
+    return res.status(200).json({ sucesso: true, dados });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}
+
+export async function salvarBoletim(req, res, next) {
+  try {
+    await garantirAcessoTdp(req.usuario, req.body?.id_tdp);
+    const resultado = await NotaService.salvarBoletim(req.body);
+    return res.status(200).json({ sucesso: true, dados: resultado });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}

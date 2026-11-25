@@ -38,7 +38,12 @@ export async function criar(disciplina) {
   const sql = 'INSERT INTO disciplinas (nome) VALUES (?)';
   const valores = [disciplina.nome];
   const [resultado] = await pool.query(sql, valores);
-  return { ...disciplina, id: resultado.insertId, imagem_url: null };
+  return {
+    ...disciplina,
+    id: resultado.insertId,
+    id_disciplina: resultado.insertId,
+    imagem_url: null,
+  };
 }
 
 // 4. Atualização completa (PUT)

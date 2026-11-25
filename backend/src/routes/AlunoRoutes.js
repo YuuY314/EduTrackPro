@@ -2,6 +2,8 @@
 // routes/AlunoRoutes.js - cadastro de alunos (prefixo /api/alunos)
 //
 // Professor pode CONSULTAR alunos; só o admin cria, edita e remove.
+// Aluno NÃO lista alunos: a consulta traz CPF e endereço de todos.
+// (Os dados do próprio aluno chegam por /auth/me, /boletim/meu etc.)
 // =====================================================================
 
 import { Router } from 'express';

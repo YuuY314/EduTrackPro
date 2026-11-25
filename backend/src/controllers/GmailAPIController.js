@@ -30,3 +30,6 @@ export async function enviar(req, res, next) {
         return responderErro(erro, res, next);
     }
 }
+
+// A recuperação de senha é feita por POST /api/auth/recuperar-senha
+// (AuthService), que só envia para o e-mail cadastrado da conta.

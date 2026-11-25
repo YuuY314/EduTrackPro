@@ -12,10 +12,12 @@ import { errorHandler, notFound } from './middlewares/errorHandler.js';
 import { authRouter } from './routes/AuthRoutes.js';
 
 import { administradorRouter } from './routes/AdministradorRoutes.js';
+import { adminRouter } from './routes/AdminRoutes.js';
 import { alunoRouter } from './routes/AlunoRoutes.js';
 import { aulaRouter } from './routes/AulaRoutes.js';
 import { avaliacaoRouter } from './routes/AvaliacaoRoutes.js';
 import { avisoRouter } from './routes/AvisoRoutes.js';
+import { calendarioEventoRouter } from './routes/CalendarioEventoRoutes.js';
 import { disciplinaRouter } from './routes/DisciplinaRoutes.js';
 import { frequenciaRouter } from './routes/FrequenciaRoutes.js';
 import { horarioAulaRouter } from './routes/HorarioAulaRoutes.js';
@@ -48,10 +50,12 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/auth', authRouter);
 
 app.use('/api/administrador', administradorRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/aluno', alunoRouter);
 app.use('/api/aula', aulaRouter);
 app.use('/api/avaliacao', avaliacaoRouter);
 app.use('/api/aviso', avisoRouter);
+app.use('/api/calendario', calendarioEventoRouter);
 app.use('/api/disciplina', disciplinaRouter);
 app.use('/api/frequencia', frequenciaRouter);
 app.use('/api/horario_aula', horarioAulaRouter);

@@ -65,3 +65,10 @@ export async function atualizarEmail(id, email, db = pool) {
 export async function excluir(id, db = pool) {
   await db.execute('DELETE FROM usuarios WHERE id_usuario = ?', [id]);
 }
+
+export async function atualizarSenha(idUsuario, senhaHash, db = pool) {
+  await db.execute(
+    'UPDATE usuarios SET senha_hash = ? WHERE id_usuario = ?',
+    [senhaHash, idUsuario]
+  );
+}

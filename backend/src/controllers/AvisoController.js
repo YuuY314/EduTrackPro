@@ -1,4 +1,5 @@
 import * as AvisoService from '../services/AvisoService.js';
+import { turmaDoAluno } from '../utils/permissoes.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -12,8 +13,9 @@ function responderErro(erro, res, next) {
 
 export async function listar(req, res, next) {
   try {
-    const resultado = await AvisoService
-  .listar(req.query);
+    // aluno só vê o que é da turma dele; equipe vê tudo
+    const idTurma = await turmaDoAluno(req.usuario);
+    const resultado = await AvisoService.listar(req.query, { idTurma });
     return res.status(200).json({
       sucesso: true,
       dados: resultado.avisos,
@@ -36,8 +38,8 @@ export async function buscarPorId(req, res, next) {
 
 export async function criar(req, res, next) {
   try {
-    const aviso = await AvisoService
-  .criar(req.body);
+    // o autor é quem está logado (token), não o que vier no corpo
+    const aviso = await AvisoService.criar({ ...req.body, id_autor: req.usuario.sub });
     return res.status(201).json({ sucesso: true, dados: aviso });
   } catch (erro) {
     return responderErro(erro, res, next);
