@@ -41,4 +41,7 @@ export const ambiente = {
   jwtExpira: process.env.JWT_EXPIRES || '8h',          // login normal
   jwtExpiraLembrar: process.env.JWT_EXPIRES_LEMBRAR || '30d', // "Lembrar de mim"
   geminiModelo: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
+  // Usado só quando o principal falha por sobrecarga, limite, timeout etc.
+  // Vazio = sem reserva (o sistema funciona igual a antes).
+  geminiModeloReserva: process.env.GEMINI_MODEL_RESERVA?.trim() || '',
 };
