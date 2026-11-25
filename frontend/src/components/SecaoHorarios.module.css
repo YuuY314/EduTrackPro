@@ -1,0 +1,120 @@
+.campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 46px;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border, var(--borda, #dbe3f3));
+  border-radius: 14px;
+}
+
+.campos > :nth-child(1) {
+  grid-column: 1 / 3;
+}
+
+.campos > :nth-child(4) {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  align-self: center;
+}
+
+.linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: entrar 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.remover {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--border, var(--borda, #dbe3f3));
+  border-radius: 12px;
+  background: transparent;
+  color: var(--danger, #e5484d);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.remover:hover {
+  border-color: var(--danger, #e5484d);
+  background: rgba(229, 72, 77, 0.1);
+  transform: translateY(-1px);
+}
+
+.remover svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vazio {
+  margin: 0;
+  color: var(--muted, var(--texto-fraco, #5a6488));
+  font-size: 14px;
+}
+
+.adicionar {
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1.5px dashed var(--blue, var(--azul-coruja, #70b1ff));
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text, var(--texto, #0a1959));
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.adicionar:hover {
+  background: var(--focus, rgba(91, 141, 239, 0.22));
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .campos {
+    grid-template-columns: minmax(0, 1fr) 46px;
+  }
+
+  .campos > :nth-child(-n + 3) {
+    grid-column: 1;
+  }
+
+  .campos > :nth-child(4) {
+    grid-row: 1 / span 3;
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linha {
+    animation: none;
+  }
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import styles from './EditarAluno.module.css';
 import Selecao from './Selecao';
+import SecaoHorarios, { limparHorarios } from './SecaoHorarios';
 
 function mascaraCpf(valor) {
   const d = valor.replace(/\D/g, '').slice(0, 11);
@@ -45,6 +46,7 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
   const [fechando, setFechando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [horarios, setHorarios] = useState(professor.horarios ?? []);
 
   useEffect(() => {
     const overflow = document.body.style.overflow;
@@ -168,18 +170,15 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
           <section className={`${styles.secao} ${styles.atraso}`}>
             <Titulo numero="2" titulo="Aulas" texto="Disciplina e turmas atendidas" />
             <div className={styles.grid}>
-              <Campo label="Disciplina" erro={erros.disciplina}>
-                <input
-                  list="editar-lista-disciplinas"
-                  value={form.disciplina}
-                  onChange={alterar('disciplina')}
-                  placeholder="Ex.: Matemática"
+              <Campo label="Disciplinas" erro={erros.disciplina}>
+                <Selecao
+                  multiplo
+                  value={form.disciplinas}
+                  onChange={alterar('disciplinas')}
+                  placeholder="Selecione as disciplinas"
+                  erro={Boolean(erros.disciplina)}
+                  opcoes={disciplinas.map((d) => ({ value: d, label: d }))}
                 />
-                <datalist id="editar-lista-disciplinas">
-                  {disciplinas.map((d) => (
-                    <option key={d} value={d} />
-                  ))}
-                </datalist>
               </Campo>
               <Campo label="Turmas">
                 <Selecao
@@ -192,14 +191,13 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
               </Campo>
             </div>
           </section>
+
+          <SecaoHorarios turmas={turmas} selecionadas={form.turmas} value={horarios} onChange={setHorarios} />
         </div>
 
         <footer className={styles.rodape}>
-          {erroEnvio && <span className={styles.erro} role="alert">{erroEnvio}</span>}
           <button type="button" className={styles.btnSecundario} onClick={fechar}>Cancelar</button>
-          <button type="submit" className={styles.btnPrimario} disabled={salvando}>
-            {salvando ? 'Salvando…' : 'Salvar alterações'}
-          </button>
+          <button type="submit" className={styles.btnPrimario}>Salvar alterações</button>
         </footer>
       </form>
     </div>
