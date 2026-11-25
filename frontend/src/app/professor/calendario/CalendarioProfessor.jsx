@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import CalendarioGrade from '@/src/components/CalendarioGrade';
+import { api, lerSessao } from '@/src/lib/api';
 import Selecao from '@/src/components/Selecao';
 import SeletorData from '@/src/components/SeletorData';
-import { useCalendario, formatarData, hojeISO } from '@/src/lib/calendario';
-import { api, lerSessao } from '@/src/lib/api';
+import { formatarData, hojeISO } from '@/src/lib/calendario';
 
 const tiposProfessor = ['Avaliação', 'Reunião de pais/responsáveis', 'Dia não letivo'];
 
@@ -156,7 +156,11 @@ export default function CalendarioProfessor() {
             onChange={(e) => setIdTurma(e.target.value)}
             opcoes={[
               { value: '', label: 'Todas as turmas' },
-              ...turmas.map((t) => ({ value: t.id, label: t.nome, detalhe: t.turno })),
+              ...turmas.map((t) => ({
+                value: String(t.id_turma ?? t.id),
+                label: t.turma || t.nome_turma || t.nome || 'Turma',
+                detalhe: t.turno || t.periodo || '',
+              })),
             ]}
           />
         </div>

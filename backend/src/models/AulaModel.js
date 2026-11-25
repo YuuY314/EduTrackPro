@@ -38,7 +38,7 @@ export async function criar(aula) {
   const sql = 'INSERT INTO aulas (id_tdp, data, conteudo) VALUES (?, ?, ?)';
   const valores = [aula.id_tdp, aula.data, aula.conteudo];
   const [resultado] = await pool.query(sql, valores);
-  return { ...aula, id: resultado.insertId, imagem_url: null };
+  return { ...aula, id_aula: resultado.insertId, id: resultado.insertId };
 }
 
 // 4. Atualização completa (PUT)

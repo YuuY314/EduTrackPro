@@ -24,21 +24,18 @@ const emailValido = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 const cpfValido = (v) => v.replace(/\D/g, '').length === 11;
 const telefoneValido = (v) => v.replace(/\D/g, '').length >= 10;
 
-const nomeCurto = (turma) => turma.nome.replace(' Série', '');
-
-function turmasSelecionadas(texto, turmas) {
-  const nomes = (texto ?? '').split(',').map((n) => n.trim());
-  return turmas.filter((t) => nomes.includes(nomeCurto(t)) || nomes.includes(t.nome)).map((t) => t.id);
-}
 
 function montarForm(professor, turmas) {
+  const idsVinculados = professor.ids_turmas
+    ?? (professor.vinculos ? [...new Set(professor.vinculos.map((v) => Number(v.id_turma)))] : []);
+
   return {
     nome: professor.nome ?? '',
     cpf: professor.cpf ?? '',
     telefone: professor.telefone ?? '',
     email: professor.email ?? '',
-    disciplina: professor.disciplina ?? '',
-    turmas: turmasSelecionadas(professor.turmas, turmas),
+    disciplina: professor.disciplina === 'Sem disciplina' ? '' : (professor.disciplina ?? ''),
+    turmas: idsVinculados,
   };
 }
 
@@ -46,6 +43,8 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
   const [form, setForm] = useState(() => montarForm(professor, turmas));
   const [erros, setErros] = useState({});
   const [fechando, setFechando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     const overflow = document.body.style.overflow;
@@ -83,21 +82,28 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
     return e;
   }
 
-  function salvar(evento) {
+  async function salvar(evento) {
     evento.preventDefault();
     const encontrados = validar();
     setErros(encontrados);
     if (Object.keys(encontrados).length) return;
 
-    onSalvar({
-      nome: form.nome.trim(),
-      cpf: form.cpf,
-      telefone: form.telefone,
-      email: form.email.trim(),
-      disciplina: form.disciplina.trim(),
-      turmas: turmas.filter((t) => form.turmas.includes(t.id)).map(nomeCurto).join(', ') || '–',
-    });
-    fechar();
+    setSalvando(true);
+    setErroEnvio('');
+    try {
+      await onSalvar({
+        nome: form.nome.trim(),
+        cpf: form.cpf,
+        telefone: form.telefone,
+        email: form.email.trim(),
+        disciplina: form.disciplina.trim(),
+        id_turmas: form.turmas.map(Number),
+      });
+      fechar();
+    } catch (err) {
+      setErroEnvio(err.message);
+      setSalvando(false);
+    }
   }
 
   return (
@@ -189,8 +195,11 @@ export default function EditarProfessor({ professor, disciplinas, turmas, onSalv
         </div>
 
         <footer className={styles.rodape}>
+          {erroEnvio && <span className={styles.erro} role="alert">{erroEnvio}</span>}
           <button type="button" className={styles.btnSecundario} onClick={fechar}>Cancelar</button>
-          <button type="submit" className={styles.btnPrimario}>Salvar alterações</button>
+          <button type="submit" className={styles.btnPrimario} disabled={salvando}>
+            {salvando ? 'Salvando…' : 'Salvar alterações'}
+          </button>
         </footer>
       </form>
     </div>

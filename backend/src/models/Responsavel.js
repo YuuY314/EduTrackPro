@@ -1,8 +1,9 @@
 export default class Disciplina {
     constructor({
-        id_responsavel, nome, cpf, telefone, email, parentesco
+        id_responsavel, id, nome, cpf, telefone, email, parentesco
     }) {
-        if (!Number.isInteger(id_responsavel) || id_responsavel <= 0) {
+        const idFinal = id_responsavel ?? id;
+        if (!Number.isInteger(idFinal) || idFinal <= 0) {
             throw new TypeError('ID deve ser um inteiro positivo');
         }
         if (typeof nome !== 'string' || nome.trim() === '') {
@@ -20,11 +21,11 @@ export default class Disciplina {
         if (typeof parentesco !== 'string' || parentesco.trim() === '') {
             throw new TypeError('Parentesco é obrigatório');
         }
-        this.id_responsavel = id_responsavel;
+        this.id_responsavel = idFinal;
         this.nome = nome.trim();
         this.cpf = cpf.trim();
         this.telefone = telefone.trim();
-        this.email = email?.trim() ?? null;
+        this.email = email && email.trim() !== '' ? email.trim() : null;
         this.parentesco = parentesco.trim();
     }
 }

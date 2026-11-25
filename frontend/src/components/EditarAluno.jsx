@@ -27,11 +27,13 @@ const cpfValido = (v) => v.replace(/\D/g, '').length === 11;
 const telefoneValido = (v) => v.replace(/\D/g, '').length >= 10;
 
 function montarForm(aluno, turmas) {
-  const turma = turmas.find((t) => t.nome === aluno.turma && t.turno === aluno.turno);
+  const turma =
+    turmas.find((t) => Number(t.id) === Number(aluno.id_turma)) ||
+    turmas.find((t) => t.nome === aluno.turma && t.turno === aluno.turno);
   const resp = aluno.responsavelDados || {};
   return {
     aluno: {
-      turma: turma?.id ?? turmas[0].id,
+      turma: turma?.id ?? turmas[0]?.id ?? '',
       nome: aluno.nome ?? '',
       cpf: aluno.cpf ?? '',
       email_institucional: aluno.email_institucional ?? '',
@@ -51,6 +53,8 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
   const [form, setForm] = useState(() => montarForm(aluno, turmas));
   const [erros, setErros] = useState({});
   const [fechando, setFechando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     const overflow = document.body.style.overflow;
@@ -90,7 +94,7 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
     return e;
   }
 
-  function salvar(evento) {
+  async function salvar(evento) {
     evento.preventDefault();
     const encontrados = validar();
     setErros(encontrados);
@@ -99,9 +103,10 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
     const turma = turmas.find((t) => String(t.id) === String(form.aluno.turma));
     const { aluno: a, responsavel: r } = form;
     onSalvar({
+      id_turma: Number(form.aluno.turma),
       nome: a.nome.trim(),
-      turma: turma.nome,
-      turno: turma.turno,
+      turma: turma?.nome ?? aluno.turma,
+      turno: turma?.turno ?? aluno.turno,
       cpf: a.cpf,
       email_institucional: a.email_institucional.trim(),
       endereco: a.endereco.trim(),
@@ -222,8 +227,11 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
         </div>
 
         <footer className={styles.rodape}>
+          {erroEnvio && <span className={styles.erro} role="alert">{erroEnvio}</span>}
           <button type="button" className={styles.btnSecundario} onClick={fechar}>Cancelar</button>
-          <button type="submit" className={styles.btnPrimario}>Salvar alterações</button>
+          <button type="submit" className={styles.btnPrimario} disabled={salvando}>
+            {salvando ? 'Salvando…' : 'Salvar alterações'}
+          </button>
         </footer>
       </form>
     </div>

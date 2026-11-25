@@ -9,7 +9,7 @@ function validarId(idRecebido) {
   return id;
 }
 
-export async function listar({ pagina = 1, limite = 10 } = {}) {
+export async function listar({ pagina = 1, limite = 10 } = {}, { idTurma = null } = {}) {
   const paginaNum = Number(pagina);
   const limiteNum = Number(limite);
 
@@ -21,7 +21,7 @@ export async function listar({ pagina = 1, limite = 10 } = {}) {
   }
 
   const offset = (paginaNum - 1) * limiteNum;
-  const { tarefas, total } = await TarefaModel.listar({ limite: limiteNum, offset });
+  const { tarefas, total } = await TarefaModel.listar({ limite: limiteNum, offset, id_turma: idTurma });
 
   return {
     tarefas,
@@ -44,13 +44,13 @@ export async function buscarPorId(idRecebido) {
 }
 
 export async function criar(dados) {
-  const tarefaDominio = new Tarefa({ id: 1, ...dados });
+  const tarefaDominio = new Tarefa({ ...dados, id_tarefa: 1 }); // id provisório só para validar; o banco gera o real
   return await TarefaModel.criar(tarefaDominio);
 }
 
 export async function atualizar(idRecebido, dados) {
   const id = validarId(idRecebido);
-  const tarefaDominio = new Tarefa({ id, ...dados });
+  const tarefaDominio = new Tarefa({ ...dados, id_tarefa: id });
   const atualizou = await TarefaModel.atualizar(id, tarefaDominio);
   if (!atualizou) {
     throw new Error(`Tarefa ${id} não encontrado.`);
