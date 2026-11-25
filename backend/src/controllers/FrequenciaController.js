@@ -105,4 +105,14 @@ export async function listarHorarios(req, res, next) {
   } catch (erro) {
     return responderErro(erro, res, next);
   }
-}
+}
+// GET /frequencia/resumo/:id_tdp - presença de cada aluno na disciplina
+export async function resumoPorTdp(req, res, next) {
+  try {
+    await garantirAcessoTdp(req.usuario, req.params.id_tdp);
+    const dados = await FrequenciaService.resumoPorTdp(req.params.id_tdp);
+    return res.status(200).json({ sucesso: true, dados });
+  } catch (erro) {
+    return responderErro(erro, res, next);
+  }
+}

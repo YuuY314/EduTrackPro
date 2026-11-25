@@ -10,9 +10,23 @@ import { gerarHash } from '../utils/senha.js';
 import { bimestreAtual } from '../utils/bimestre.js';
 import { lerTextos, paraId, validarSenha } from '../utils/validacoes.js';
 import { enviarEmailLembreteNotas } from './GmailAPIService.js';
+import * as ProfessorService from './ProfessorService.js';
 
 // bimestre atual: bimestreAtual() de utils/bimestre.js (antes era fixo em 3)
 const PERIODOS = ['Manhã', 'Tarde', 'Noite'];
+
+// Regra RÍGIDA de notas pendentes (decisão do grupo, 25/11/2026). Uma
+// turma/disciplina (x = turma_disciplina_professor) está PENDENTE no bimestre se:
+//   - ainda não tem nenhuma avaliação no bimestre, OU
+//   - tem alguma avaliação do bimestre sem nenhuma nota lançada
+//     (ex.: lançou Prova 1 e Trabalho, mas a coluna Prova 2 está vazia).
+// Usada no painel (resumo), na lista de professores e no lembrete por e-mail,
+// para que as três telas sempre concordem. Recebe o bimestre DUAS vezes.
+const TDP_PENDENTE = `(
+      NOT EXISTS (SELECT 1 FROM avaliacoes av WHERE av.id_tdp = x.id AND av.bimestre = ?)
+   OR EXISTS (SELECT 1 FROM avaliacoes av
+               WHERE av.id_tdp = x.id AND av.bimestre = ?
+                 AND NOT EXISTS (SELECT 1 FROM notas n WHERE n.id_avaliacao = av.id_avaliacao)))`;
 
 const q = async (sql, params = [], db = pool) => (await db.query(sql, params))[0];
 
@@ -28,11 +42,11 @@ export async function resumo() {
        JOIN frequencias f ON f.id_aluno = a.id_aluno
       GROUP BY a.id_aluno HAVING presenca < 75 ORDER BY presenca LIMIT 6`);
   const atrasados = await listarProfessores({ somenteAtrasados: true });
+  const bim = bimestreAtual();
   const [[{ turmasPendentes }]] = await pool.query(
-    `SELECT COUNT(DISTINCT tdp.id_turma) AS turmasPendentes
-       FROM turma_disciplina_professor tdp
-      WHERE NOT EXISTS (SELECT 1 FROM avaliacoes av JOIN notas n ON n.id_avaliacao = av.id_avaliacao
-                         WHERE av.id_tdp = tdp.id AND av.bimestre = ?)`, [bimestreAtual()]);
+    `SELECT COUNT(DISTINCT x.id_turma) AS turmasPendentes
+       FROM turma_disciplina_professor x
+      WHERE ${TDP_PENDENTE}`, [bim, bim]);
   return {
     alunos, professores, frequenciaMedia: freq === null ? null : Number(freq),
     turmasPendentes, alunosRisco, lancamentosAtrasados: atrasados.slice(0, 6),
@@ -153,9 +167,8 @@ export async function listarProfessores({ somenteAtrasados = false } = {}) {
             (SELECT COUNT(*) FROM turma_disciplina_professor x WHERE x.id_professor = p.id_professor) AS total_tdp,
             (SELECT COUNT(*) FROM turma_disciplina_professor x
               WHERE x.id_professor = p.id_professor
-                AND NOT EXISTS (SELECT 1 FROM avaliacoes av JOIN notas n ON n.id_avaliacao = av.id_avaliacao
-                                 WHERE av.id_tdp = x.id AND av.bimestre = ?)) AS pendentes
-       FROM professores p ORDER BY p.nome`, [bimestreAtual()]);
+                AND ${TDP_PENDENTE}) AS pendentes
+       FROM professores p ORDER BY p.nome`, [bimestreAtual(), bimestreAtual()]);
   const todos = linhas.map((p) => ({
     ...p,
     ids_turmas: p.ids_turmas ? p.ids_turmas.split(',').map(Number) : [],
@@ -170,40 +183,21 @@ async function buscarProfessor(id) {
   return p;
 }
 
-// Garante que o professor dá a disciplina nas turmas escolhidas.
-async function sincronizarAulas(id_professor, disciplina, idsTurmas, c) {
-  const [achada] = await c.query('SELECT id_disciplina FROM disciplinas WHERE nome = ?', [disciplina]);
-  const id_disciplina = achada[0]?.id_disciplina
-    ?? (await c.query('INSERT INTO disciplinas (nome) VALUES (?)', [disciplina]))[0].insertId;
-
-  const [atuais] = await c.query(
-    'SELECT id, id_turma, id_professor FROM turma_disciplina_professor WHERE id_disciplina = ?', [id_disciplina]);
-
-  for (const id_turma of idsTurmas) {
-    const existente = atuais.find((t) => t.id_turma === id_turma);
-    if (existente && existente.id_professor !== id_professor) {
-      throw new AppError('Uma das turmas já tem outro professor nessa disciplina.', 409);
-    }
-    if (!existente) {
-      await c.query('INSERT INTO turma_disciplina_professor (id_turma, id_disciplina, id_professor) VALUES (?, ?, ?)',
-        [id_turma, id_disciplina, id_professor]);
-    }
-  }
-  // turmas desmarcadas: só remove se não houver aulas/avaliações/tarefas ligadas
-  for (const t of atuais.filter((t) => t.id_professor === id_professor && !idsTurmas.includes(t.id_turma))) {
-    const [[uso]] = await c.query(
-      `SELECT (SELECT COUNT(*) FROM aulas WHERE id_tdp = ?) + (SELECT COUNT(*) FROM avaliacoes WHERE id_tdp = ?)
-            + (SELECT COUNT(*) FROM tarefas WHERE id_tdp = ?) AS usos`, [t.id, t.id, t.id]);
-    if (uso.usos > 0) throw new AppError('Não é possível tirar uma turma que já tem aulas, notas ou tarefas lançadas.', 409);
-    await c.query('DELETE FROM turma_disciplina_professor WHERE id = ?', [t.id]);
-  }
+// O e-mail de LOGIN (usuarios.email) pode ser diferente do e-mail de contato
+// do professor/admin: a tela de cadastro tem "Usar o mesmo email do usuário".
+// Antes o e-mail de login digitado era descartado quando a caixa era desmarcada
+// e a pessoa só conseguia entrar com o e-mail de contato.
+function emailDeLogin(body, emailContato) {
+  if (body.email_login === undefined || body.email_login === null || body.email_login === '') return emailContato;
+  const { email_login } = lerTextos(body, { obrigatorios: ['email_login'] });
+  return email_login;
 }
 
 export async function criarProfessor(body = {}) {
   const d = lerTextos(body, { obrigatorios: ['nome', 'cpf', 'email', 'senha'], opcionais: ['telefone'] });
   const senha_hash = await gerarHash(validarSenha(d.senha));
   const id = await emTransacao(async (c) => {
-    const id_usuario = await UsuarioModel.criar({ email: d.email, senha_hash, perfil: 'professor' }, c);
+    const id_usuario = await UsuarioModel.criar({ email: emailDeLogin(body, d.email), senha_hash, perfil: 'professor' }, c);
     const [r] = await c.query(
       'INSERT INTO professores (id_usuario, nome, cpf, email, telefone) VALUES (?, ?, ?, ?, ?)',
       [id_usuario, d.nome, d.cpf, d.email, d.telefone ?? null]);
@@ -212,32 +206,30 @@ export async function criarProfessor(body = {}) {
   return buscarProfessor(id);
 }
 
+// Mesmas regras da tela "Professores" (ProfessorService): antes havia aqui uma
+// cópia própria (sincronizarAulas) com regras diferentes. Este endpoint aceita
+// { disciplina, id_turmas } e mexe só nas turmas DESSA disciplina.
 export async function atualizarProfessor(idRecebido, body = {}) {
   const id = paraId(idRecebido);
-  const atual = await buscarProfessor(id);
-  const d = lerTextos(body, { obrigatorios: ['nome', 'email'], opcionais: ['cpf', 'telefone'] });
-  await emTransacao(async (c) => {
-    await c.query(
-      'UPDATE professores SET nome = ?, cpf = COALESCE(?, cpf), email = ?, telefone = ? WHERE id_professor = ?',
-      [d.nome, d.cpf ?? null, d.email, d.telefone ?? null, id]);
-    const [[p]] = await c.query('SELECT id_usuario FROM professores WHERE id_professor = ?', [id]);
-    await UsuarioModel.atualizarEmail(p.id_usuario, d.email, c);
-    const disciplina = typeof body.disciplina === 'string' ? body.disciplina.trim() : '';
-    if (disciplina && Array.isArray(body.id_turmas)) {
-      await sincronizarAulas(id, disciplina, body.id_turmas.map((t) => paraId(t, 'id_turmas')), c);
-    }
-  });
-  return buscarProfessor(atual.id_professor);
+  await buscarProfessor(id);
+  const corpo = { nome: body.nome, cpf: body.cpf, email: body.email, telefone: body.telefone };
+
+  const disciplina = typeof body.disciplina === 'string' ? body.disciplina.trim() : '';
+  if (disciplina && Array.isArray(body.id_turmas)) {
+    const atual = await ProfessorService.buscarPorId(id);
+    corpo.vinculos = [
+      ...atual.vinculos.filter((v) => v.disciplina.toLowerCase() !== disciplina.toLowerCase()),
+      ...body.id_turmas.map((t) => ({ id_turma: paraId(t, 'id_turmas'), disciplina })),
+    ];
+  }
+  await ProfessorService.atualizar(id, corpo);
+  return buscarProfessor(id);
 }
 
-export async function excluirProfessor(idRecebido) {
+export async function excluirProfessor(idRecebido, usuarioLogado) {
   const id = paraId(idRecebido);
   await buscarProfessor(id);
-  await emTransacao(async (c) => {
-    const [[p]] = await c.query('SELECT id_usuario FROM professores WHERE id_professor = ?', [id]);
-    await c.query('DELETE FROM professores WHERE id_professor = ?', [id]); // FK recusa (409) se ainda der aula
-    await UsuarioModel.excluir(p.id_usuario, c);
-  });
+  await ProfessorService.excluir(id, usuarioLogado);
 }
 
 // Lembrete de notas pendentes: o front manda só o id; quem decide se o professor
@@ -257,10 +249,9 @@ export async function enviarLembreteProfessor(idRecebido) {
        JOIN disciplinas d ON d.id_disciplina = x.id_disciplina
        JOIN turmas t ON t.id_turma = x.id_turma
       WHERE x.id_professor = ?
-        AND NOT EXISTS (SELECT 1 FROM avaliacoes av JOIN notas n ON n.id_avaliacao = av.id_avaliacao
-                         WHERE av.id_tdp = x.id AND av.bimestre = ?)
+        AND ${TDP_PENDENTE}
       ORDER BY t.nome, d.nome`,
-    [id, bimestre]);
+    [id, bimestre, bimestre]);
 
   try {
     await enviarEmailLembreteNotas({
@@ -282,7 +273,7 @@ export async function criarAdministrador(body = {}) {
   const d = lerTextos(body, { obrigatorios: ['nome', 'cpf', 'email', 'senha'], opcionais: ['telefone'] });
   const senha_hash = await gerarHash(validarSenha(d.senha));
   const id = await emTransacao(async (c) => {
-    const id_usuario = await UsuarioModel.criar({ email: d.email, senha_hash, perfil: 'admin' }, c);
+    const id_usuario = await UsuarioModel.criar({ email: emailDeLogin(body, d.email), senha_hash, perfil: 'admin' }, c);
     const [r] = await c.query(
       'INSERT INTO administradores (id_usuario, nome, cpf, email, telefone) VALUES (?, ?, ?, ?, ?)',
       [id_usuario, d.nome, d.cpf, d.email, d.telefone ?? null]);

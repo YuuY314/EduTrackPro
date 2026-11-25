@@ -1,5 +1,6 @@
 import Aviso from '../models/Aviso.js';
 import * as AvisoModel from '../models/AvisoModel.js';
+import { AppError } from '../utils/AppError.js';
 
 function validarId(idRecebido) {
   const id = Number(idRecebido);
@@ -48,9 +49,28 @@ export async function criar(dados) {
   return await AvisoModel.criar(avisoDominio);
 }
 
-export async function atualizar(idRecebido, dados) {
+// Mantém autor, data de publicação e campos não enviados. Antes o PUT exigia
+// "id_autor" no corpo (qualquer um podia "assinar" pelo outro) e trocava a data
+// de publicação para hoje a cada edição. Professor só edita os próprios avisos.
+export async function atualizar(idRecebido, dados = {}, usuario) {
   const id = validarId(idRecebido);
-  const avisoDominio = new Aviso({ ...dados, id_aviso: id });
+  const existente = await buscarPorId(id);
+
+  if (usuario?.perfil === 'professor' && Number(existente.id_autor) !== Number(usuario.sub)) {
+    throw new AppError('Você só pode editar os avisos que você publicou.', 403);
+  }
+
+  const avisoDominio = new Aviso({
+    id_turma: existente.id_turma,
+    titulo: existente.titulo,
+    texto: existente.texto,
+    ...dados,
+    id_aviso: id,
+    id_autor: Number(existente.id_autor),
+    data_publicacao: dados.data_publicacao ?? '2000-01-01', // só para validar; trocada abaixo
+  });
+  if (dados.data_publicacao === undefined) avisoDominio.data_publicacao = existente.data_publicacao;
+
   const atualizou = await AvisoModel.atualizar(id, avisoDominio);
   if (!atualizou) {
     throw new Error(`Aviso ${id} não encontrado.`);

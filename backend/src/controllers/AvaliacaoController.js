@@ -1,4 +1,5 @@
 import * as AvaliacaoService from '../services/AvaliacaoService.js';
+import { garantirAcessoRegistro, garantirAcessoTdp } from '../utils/permissoes.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -36,6 +37,7 @@ export async function buscarPorId(req, res, next) {
 
 export async function criar(req, res, next) {
   try {
+    await garantirAcessoTdp(req.usuario, req.body?.id_tdp);
     const avaliacao = await AvaliacaoService
   .criar(req.body);
     return res.status(201).json({ sucesso: true, dados: avaliacao });
@@ -46,6 +48,7 @@ export async function criar(req, res, next) {
 
 export async function atualizar(req, res, next) {
   try {
+    await garantirAcessoRegistro(req.usuario, await AvaliacaoService.buscarPorId(req.params.id), req.body?.id_tdp);
     const avaliacao = await AvaliacaoService
   .atualizar(req.params.id, req.body);
     return res.status(200).json({ sucesso: true, dados: avaliacao });
@@ -67,6 +70,7 @@ export async function enviarImagem(req, res, next) {
 
 export async function excluir(req, res, next) {
   try {
+    await garantirAcessoRegistro(req.usuario, await AvaliacaoService.buscarPorId(req.params.id));
     await AvaliacaoService
   .excluir(req.params.id);
     return res.status(204).send();

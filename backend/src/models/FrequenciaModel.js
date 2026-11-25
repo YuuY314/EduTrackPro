@@ -171,4 +171,30 @@ export async function listarHorariosPorTdp(id_tdp) {
     [id_tdp]
   );
   return linhas;
-}
+}
+// Presença de cada aluno da turma SÓ nas aulas daquela turma/disciplina
+// (id_tdp). A view vw_faltas_aluno soma todas as matérias juntas; o painel
+// do professor precisa da frequência na matéria DELE.
+export async function resumoPorTdp(id_tdp) {
+  const [linhas] = await pool.query(
+    `SELECT a.id_aluno, a.nome AS aluno,
+            COUNT(f.id)            AS total_aulas,
+            SUM(f.presente = 0)    AS faltas,
+            ROUND(100 * SUM(f.presente) / COUNT(f.id), 1) AS percentual_presenca
+       FROM turma_disciplina_professor tdp
+       JOIN alunos a        ON a.id_turma = tdp.id_turma
+       LEFT JOIN aulas au   ON au.id_tdp = tdp.id
+       LEFT JOIN frequencias f ON f.id_aula = au.id_aula AND f.id_aluno = a.id_aluno
+      WHERE tdp.id = ?
+      GROUP BY a.id_aluno, a.nome
+      ORDER BY a.nome`,
+    [id_tdp]
+  );
+  return linhas.map((l) => ({
+    id_aluno: l.id_aluno,
+    aluno: l.aluno,
+    total_aulas: Number(l.total_aulas),
+    faltas: Number(l.faltas ?? 0),
+    percentual_presenca: l.percentual_presenca === null ? null : Number(l.percentual_presenca),
+  }));
+}

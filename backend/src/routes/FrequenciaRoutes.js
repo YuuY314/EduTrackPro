@@ -19,6 +19,7 @@ const somenteAdmin = exigirPerfil('admin');
 frequenciaRouter.get('/chamada', equipe, FrequenciaController.buscarChamada);
 frequenciaRouter.post('/chamada', equipe, FrequenciaController.salvarChamada);
 frequenciaRouter.get('/horarios/:id_tdp', equipe, FrequenciaController.listarHorarios);
+frequenciaRouter.get('/resumo/:id_tdp', equipe, FrequenciaController.resumoPorTdp);
 
 frequenciaRouter.get('/', somenteAdmin, FrequenciaController.listar);
 frequenciaRouter.get('/:id', somenteAdmin, FrequenciaController.buscarPorId);

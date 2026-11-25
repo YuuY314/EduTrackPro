@@ -106,4 +106,7 @@ export async function salvarChamada(dados) {
 export async function listarHorarios(id_tdp) {
   const idTdpNum = validarId(id_tdp);
   return await FrequenciaModel.listarHorariosPorTdp(idTdpNum);
-}
+}
+export async function resumoPorTdp(id_tdp) {
+  return await FrequenciaModel.resumoPorTdp(validarId(id_tdp));
+}

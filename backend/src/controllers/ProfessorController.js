@@ -21,6 +21,10 @@ export async function atualizar(req, res) {
 }
 
 export async function excluir(req, res) {
-  await ProfessorService.excluir(req.params.id);
+  await ProfessorService.excluir(req.params.id, req.usuario);
   res.status(204).send();
+}
+
+export async function transferirVinculo(req, res) {
+  res.json(await ProfessorService.transferirVinculo(req.params.id, req.body));
 }

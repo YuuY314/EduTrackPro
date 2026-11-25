@@ -48,8 +48,7 @@ export async function criar(req, res, next) {
 
 export async function atualizar(req, res, next) {
   try {
-    const aviso = await AvisoService
-  .atualizar(req.params.id, req.body);
+    const aviso = await AvisoService.atualizar(req.params.id, req.body, req.usuario);
     return res.status(200).json({ sucesso: true, dados: aviso });
   } catch (erro) {
     return responderErro(erro, res, next);

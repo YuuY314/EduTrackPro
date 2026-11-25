@@ -53,3 +53,13 @@ export async function garantirAlunosDaTdp(idTdp, idsAlunos, db = pool) {
     throw new AppError('Há alunos na lista que não pertencem a essa turma.', 422);
   }
 }
+
+// Editar/excluir um registro que pertence a um vínculo (aula, avaliação, tarefa).
+// Antes o professor podia alterar ou apagar registros das turmas de OUTROS
+// professores só trocando o id na URL, e "mover" um registro para outro vínculo.
+// registroAtual = o que está no banco; idTdpNovo = o id_tdp que veio no corpo.
+export async function garantirAcessoRegistro(usuario, registroAtual, idTdpNovo) {
+  if (usuario?.perfil !== 'professor') return;
+  await garantirAcessoTdp(usuario, registroAtual?.id_tdp);
+  if (idTdpNovo !== undefined) await garantirAcessoTdp(usuario, idTdpNovo);
+}

@@ -1,4 +1,5 @@
 import * as AulaService from '../services/AulaService.js';
+import { garantirAcessoRegistro, garantirAcessoTdp } from '../utils/permissoes.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -36,6 +37,7 @@ export async function buscarPorId(req, res, next) {
 
 export async function criar(req, res, next) {
   try {
+    await garantirAcessoTdp(req.usuario, req.body?.id_tdp);
     const aula = await AulaService
   .criar(req.body);
     return res.status(201).json({ sucesso: true, dados: aula });
@@ -46,6 +48,7 @@ export async function criar(req, res, next) {
 
 export async function atualizar(req, res, next) {
   try {
+    await garantirAcessoRegistro(req.usuario, await AulaService.buscarPorId(req.params.id), req.body?.id_tdp);
     const aula = await AulaService
   .atualizar(req.params.id, req.body);
     return res.status(200).json({ sucesso: true, dados: aula });
@@ -67,6 +70,7 @@ export async function enviarImagem(req, res, next) {
 
 export async function excluir(req, res, next) {
   try {
+    await garantirAcessoRegistro(req.usuario, await AulaService.buscarPorId(req.params.id));
     await AulaService
   .excluir(req.params.id);
     return res.status(204).send();

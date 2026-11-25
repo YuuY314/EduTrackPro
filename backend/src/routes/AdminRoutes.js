@@ -26,7 +26,7 @@ adminRouter.delete('/alunos/:id', del((r) => S.excluirAluno(r.params.id)));
 adminRouter.get('/professores', get(() => S.listarProfessores()));
 adminRouter.post('/professores', post((r) => S.criarProfessor(r.body)));
 adminRouter.put('/professores/:id', get((r) => S.atualizarProfessor(r.params.id, r.body)));
-adminRouter.delete('/professores/:id', del((r) => S.excluirProfessor(r.params.id)));
+adminRouter.delete('/professores/:id', del((r) => S.excluirProfessor(r.params.id, r.usuario)));
 adminRouter.post('/professores/:id/lembrete', get((r) => S.enviarLembreteProfessor(r.params.id)));
 
 adminRouter.post('/administradores', post((r) => S.criarAdministrador(r.body)));

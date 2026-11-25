@@ -16,4 +16,5 @@ professorRouter.get('/', ProfessorController.listar);
 professorRouter.get('/:id', ProfessorController.buscarPorId);
 professorRouter.post('/', ProfessorController.criar);
 professorRouter.put('/:id', ProfessorController.atualizar);
+professorRouter.post('/:id/transferir', ProfessorController.transferirVinculo);
 professorRouter.delete('/:id', ProfessorController.excluir);

@@ -1,5 +1,5 @@
 import * as TarefaService from '../services/TarefaService.js';
-import { turmaDoAluno } from '../utils/permissoes.js';
+import { garantirAcessoRegistro, garantirAcessoTdp, turmaDoAluno } from '../utils/permissoes.js';
 
 function responderErro(erro, res, next) {
   if (erro instanceof TypeError) {
@@ -38,6 +38,7 @@ export async function buscarPorId(req, res, next) {
 
 export async function criar(req, res, next) {
   try {
+    await garantirAcessoTdp(req.usuario, req.body?.id_tdp);
     const tarefa = await TarefaService
   .criar(req.body);
     return res.status(201).json({ sucesso: true, dados: tarefa });
@@ -48,6 +49,7 @@ export async function criar(req, res, next) {
 
 export async function atualizar(req, res, next) {
   try {
+    await garantirAcessoRegistro(req.usuario, await TarefaService.buscarPorId(req.params.id), req.body?.id_tdp);
     const tarefa = await TarefaService
   .atualizar(req.params.id, req.body);
     return res.status(200).json({ sucesso: true, dados: tarefa });
@@ -69,6 +71,7 @@ export async function enviarImagem(req, res, next) {
 
 export async function excluir(req, res, next) {
   try {
+    await garantirAcessoRegistro(req.usuario, await TarefaService.buscarPorId(req.params.id));
     await TarefaService
   .excluir(req.params.id);
     return res.status(204).send();
