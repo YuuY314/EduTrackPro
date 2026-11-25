@@ -542,4 +542,4 @@ FROM avaliacoes av;
 --   ORDER BY av.data_publicacao DESC;
 --
 -- Boletim de um aluno:
---   SELECT * FROM vw_boletim WHERE id_aluno = 1;
+--   SELECT * FROM vw_boletim WHERE id_aluno = 1;

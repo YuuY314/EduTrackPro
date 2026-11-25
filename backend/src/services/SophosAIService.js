@@ -69,13 +69,8 @@ function lerErroGemini(error) {
 // Converte o erro em AppError com mensagem clara para o usuário, sempre indicando o código.
 // IMPORTANTE: o status HTTP devolvido ao front nunca é 401/403, porque o front pode
 // interpretar isso como "sessão expirada" e deslogar o usuário. Esses casos viram 502.
-function traduzirErroGemini(error) {
+function traduzirErroGemini(error, modelo) {
   const { status, statusGoogle, detalhe, codigoRede } = lerErroGemini(error);
-
-  console.error(
-    `[SophosAI] Gemini falhou | status=${status ?? 'sem status'} google=${statusGoogle || '-'} ` +
-      `rede=${codigoRede || '-'} modelo=${ambiente.geminiModelo} | ${detalhe}`
-  );
 
   const sufixo = status ? ` (erro ${status})` : codigoRede ? ` (${codigoRede})` : '';
 
@@ -113,7 +108,7 @@ function traduzirErroGemini(error) {
 
   if (status === 404) {
     return new AppError(
-      `O modelo "${ambiente.geminiModelo}" não está disponível para essa chave. Troque o GEMINI_MODEL.${sufixo}`,
+      `O modelo "${modelo}" não está disponível para essa chave. Confira o GEMINI_MODEL / GEMINI_MODEL_RESERVA.${sufixo}`,
       502
     );
   }
@@ -140,6 +135,46 @@ function traduzirErroGemini(error) {
   return new AppError(`Falha ao se comunicar com a SophosAI. Tente novamente em instantes.${sufixo}`, 502);
 }
 
+// Loga a falha de um modelo (vai para o terminal do backend, não para o usuário).
+function logarFalha(error, modelo, papel) {
+  const { status, statusGoogle, detalhe, codigoRede } = lerErroGemini(error);
+  console.error(
+    `[SophosAI] Gemini falhou (${papel}) | status=${status ?? 'sem status'} google=${statusGoogle || '-'} ` +
+      `rede=${codigoRede || '-'} modelo=${modelo} | ${detalhe}`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modelo reserva
+// ---------------------------------------------------------------------------
+
+// Erros em que vale a pena tentar outro modelo: o problema é DAQUELE modelo
+// (sobrecarga, cota, fora do ar, lento, não existe ou sem permissão).
+// Chave inválida (400/401), formato inválido (400) e falta de internet
+// falhariam igual no reserva, então nesses casos nem tentamos.
+const STATUS_TENTAR_RESERVA = new Set([403, 404, 408, 429, 500, 502, 503, 504]);
+
+function deveTentarReserva(error) {
+  const { status } = lerErroGemini(error);
+  return STATUS_TENTAR_RESERVA.has(status);
+}
+
+// Ordem de tentativa: principal e, se configurado (e diferente), o reserva.
+function modelosParaTentar() {
+  const { geminiModelo, geminiModeloReserva } = ambiente;
+  return geminiModeloReserva && geminiModeloReserva !== geminiModelo
+    ? [geminiModelo, geminiModeloReserva]
+    : [geminiModelo];
+}
+
+// Se todos falharam, qual erro mostrar? O primeiro que NÃO seja de configuração
+// (403/404). Ex.: principal deu 503 e o reserva deu 404 (nome errado no .env):
+// para o usuário, "muita demanda" explica melhor do que "modelo não existe".
+function escolherErroParaUsuario(falhas) {
+  const ehConfiguracao = ({ error }) => [403, 404].includes(lerErroGemini(error).status);
+  return falhas.find((f) => !ehConfiguracao(f)) ?? falhas[0];
+}
+
 // ---------------------------------------------------------------------------
 
 export class SophosAIService {
@@ -156,40 +191,62 @@ export class SophosAIService {
       throw new AppError('Chave da API do Gemini não configurada no servidor.', 500);
     }
 
-    try {
-      // Personaliza o contexto com base no perfil autenticado (aluno, professor, admin)
-      const contextoUsuario = usuario
-        ? `Você está conversando com um usuário de perfil "${usuario.perfil}".`
-        : '';
+    // Personaliza o contexto com base no perfil autenticado (aluno, professor, admin)
+    const contextoUsuario = usuario
+      ? `Você está conversando com um usuário de perfil "${usuario.perfil}".`
+      : '';
 
-      const chat = ai.chats.create({
-        model: ambiente.geminiModelo,
-        history: limparHistorico(historico),
-        config: {
-          systemInstruction: `Você é a SophosAI, a assistente virtual inteligente da plataforma SophosAcademy.
+    const config = {
+      systemInstruction: `Você é a SophosAI, a assistente virtual inteligente da plataforma SophosAcademy.
           ${contextoUsuario}
           Seu objetivo é ajudar com dúvidas de estudo, organização escolar, matérias do ensino médio e uso da plataforma.
           Seja clara, didática, objetiva e responda sempre em português.
           ${REGRAS_GRAFICOS}`,
-        },
-      });
+    };
+    const history = limparHistorico(historico);
 
-      const response = await chat.sendMessage({ message: mensagem });
+    const modelos = modelosParaTentar();
+    const falhas = [];
 
-      // O Gemini pode responder 200 sem texto (ex.: conteúdo bloqueado pelos filtros de segurança).
-      if (!response.text?.trim()) {
-        const motivo = response.promptFeedback?.blockReason ?? response.candidates?.[0]?.finishReason ?? 'desconhecido';
-        console.error(`[SophosAI] Resposta vazia do Gemini | motivo=${motivo}`);
-        throw new AppError(
-          `A SophosAI não conseguiu gerar uma resposta para essa mensagem. Tente reformular a pergunta. (${motivo})`,
-          422
-        );
+    for (const [indice, modelo] of modelos.entries()) {
+      const papel = indice === 0 ? 'principal' : 'reserva';
+
+      try {
+        const chat = ai.chats.create({ model: modelo, history, config });
+        const response = await chat.sendMessage({ message: mensagem });
+
+        // O Gemini pode responder 200 sem texto (ex.: conteúdo bloqueado pelos filtros de segurança).
+        // Não tentamos o reserva aqui: o bloqueio é por causa da mensagem, não do modelo.
+        if (!response.text?.trim()) {
+          const motivo = response.promptFeedback?.blockReason ?? response.candidates?.[0]?.finishReason ?? 'desconhecido';
+          console.error(`[SophosAI] Resposta vazia do Gemini | modelo=${modelo} motivo=${motivo}`);
+          throw new AppError(
+            `A SophosAI não conseguiu gerar uma resposta para essa mensagem. Tente reformular a pergunta. (${motivo})`,
+            422
+          );
+        }
+
+        if (papel === 'reserva') {
+          console.warn(`[SophosAI] Respondido pelo modelo reserva (${modelo}).`);
+        }
+
+        return { resposta: response.text, usouReserva: papel === 'reserva' };
+      } catch (error) {
+        if (error instanceof AppError) throw error; // não retraduz o erro de resposta vazia
+
+        logarFalha(error, modelo, papel);
+        falhas.push({ error, modelo });
+
+        const temProximo = indice < modelos.length - 1;
+        if (temProximo && deveTentarReserva(error)) {
+          console.warn(`[SophosAI] Tentando o modelo reserva (${modelos[indice + 1]})...`);
+          continue;
+        }
+        break; // erro que o reserva não resolveria, ou não há mais modelos
       }
-
-      return { resposta: response.text };
-    } catch (error) {
-      if (error instanceof AppError) throw error; // não retraduz o erro de resposta vazia
-      throw traduzirErroGemini(error);
     }
+
+    const { error, modelo } = escolherErroParaUsuario(falhas);
+    throw traduzirErroGemini(error, modelo);
   }
 }

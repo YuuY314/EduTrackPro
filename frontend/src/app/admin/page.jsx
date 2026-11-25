@@ -49,8 +49,6 @@ export default function Painel() {
           {r && (r.lancamentosAtrasados ?? []).length === 0 && <p className="dica">Nenhum lançamento atrasado.</p>}
         </div>
       </div>
-
-      <TesteEmail />
     </>
   );
 }
