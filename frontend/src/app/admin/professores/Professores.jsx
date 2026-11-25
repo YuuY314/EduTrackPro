@@ -8,6 +8,7 @@ import {
   listarProfessoresAdmin,
   atualizarProfessorAdmin,
   excluirProfessorAdmin,
+  enviarLembreteProfessor,
 } from '@/src/lib/api';
 
 const situacoes = {
@@ -26,6 +27,7 @@ export default function Professores() {
   const [erro, setErro] = useState('');
 
   const [lembrados, setLembrados] = useState([]);
+  const [enviando, setEnviando] = useState(null);
   const [busca, setBusca] = useState('');
   const [disciplina, setDisciplina] = useState('');
   const [editando, setEditando] = useState(null);
@@ -86,6 +88,19 @@ export default function Professores() {
       setProfessores((lista) => lista.filter((p) => p.id !== professor.id));
     } catch (e) {
       setErro(e.message || 'Não foi possível excluir o professor (verifique se ele possui turmas vinculadas).');
+    }
+  }
+
+  async function enviarLembrete(professor) {
+    try {
+      setErro('');
+      setEnviando(professor.id);
+      await enviarLembreteProfessor(professor.id);
+      setLembrados((lista) => [...lista, professor.id]);
+    } catch (e) {
+      setErro(e.message || 'Não foi possível enviar o lembrete.');
+    } finally {
+      setEnviando(null);
     }
   }
 
@@ -169,10 +184,10 @@ export default function Professores() {
                           {precisaLembrete && (
                             <button
                               className="botao botao-pequeno botao-contorno"
-                              disabled={lembrado}
-                              onClick={() => setLembrados([...lembrados, p.id])}
+                              disabled={lembrado || enviando === p.id}
+                              onClick={() => enviarLembrete(p)}
                             >
-                              {lembrado ? 'Lembrete enviado' : 'Enviar lembrete'}
+                              {enviando === p.id ? 'Enviando...' : lembrado ? 'Lembrete enviado' : 'Enviar lembrete'}
                             </button>
                           )}
                           <button className="botao botao-pequeno botao-contorno" onClick={() => setEditando(p)}>

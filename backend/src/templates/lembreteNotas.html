@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Notas pendentes - EduTrackPro</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Sora:wght@500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg-fundo     { background-color: #0f1124 !important; }
+      .bg-cartao    { background-color: #181b35 !important; }
+      .bg-cartao-2  { background-color: #20244a !important; }
+      .borda        { border-color: #2b3060 !important; }
+      .texto        { color: #e7e9f6 !important; }
+      .texto-fraco  { color: #a2a7c9 !important; }
+      .link         { color: #9db8ff !important; }
+      .aviso        { background-color: #3d3010 !important; color: #ffd479 !important; }
+      
+      .botao-celula { background-color: #5b8def !important; }
+      .botao-link   { color: #14164f !important; }
+    }
+
+    @media only screen and (max-width: 620px) {
+      .container  { width: 100% !important; }
+      .miolo      { padding: 28px 20px !important; }
+      .rodape     { padding: 18px 20px !important; }
+      .botao-tabela { width: 100% !important; }
+      .botao-link { display: block !important; }
+      .titulo     { font-size: 22px !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-fundo" style="margin:0; padding:0; background-color:#f3f4f8;">
+
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all; font-size:1px; line-height:1px; color:#f3f4f8;">
+    Faltam notas do {{bimestre}}º bimestre para lançar.
+    &#8203;&zwnj;&#8203;&zwnj;&#8203;&zwnj;&#8203;&zwnj;&#8203;&zwnj;&#8203;&zwnj;&#8203;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-fundo" style="background-color:#f3f4f8;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <table role="presentation" class="container bg-cartao borda" width="600" cellpadding="0" cellspacing="0" border="0"
+               style="width:600px; max-width:600px; background-color:#ffffff; border:1px solid #e2e4ee; border-radius:14px; overflow:hidden;">
+
+          <tr>
+            <td style="background-color:#14164f; padding:0 24px; height:64px;" height="64">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right:10px;">
+                    <img src="{{logoUrl}}" width="36" height="36" alt="" style="display:block; width:36px; height:36px;">
+                  </td>
+                  <td valign="middle"
+                      style="font-family:'Sora', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:18px; font-weight:600; color:#ffffff; line-height:64px;">
+                    EduTrackPro
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td height="3" style="height:3px; line-height:3px; font-size:0; background-color:#5b8def;">&nbsp;</td>
+          </tr>
+
+          <tr>
+            <td class="miolo" style="padding:36px 40px 32px;">
+
+              <h1 class="titulo texto"
+                  style="margin:0 0 16px; font-family:'Sora', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:26px; line-height:1.25; font-weight:600; color:#1f2340;">
+                Lançamento de notas pendente
+              </h1>
+
+              <p class="texto"
+                 style="margin:0 0 12px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:15px; line-height:1.6; color:#1f2340;">
+                Olá, <strong>{{nome}}</strong>.
+              </p>
+              <p class="texto"
+                 style="margin:0 0 12px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:15px; line-height:1.6; color:#1f2340;">
+                Ainda não há notas lançadas do <strong>{{bimestre}}º bimestre</strong> nas turmas abaixo:
+              </p>
+              <div class="texto"
+                   style="margin:0 0 28px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:15px; line-height:1.6; color:#1f2340;">
+                {{listaPendencias}}
+              </div>
+
+              <table role="presentation" class="botao-tabela" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+                <tr>
+                  <td class="botao-celula" align="center" bgcolor="#14164f" style="background-color:#14164f; border-radius:10px;">
+                    <a href="{{link}}" target="_blank" class="botao-link"
+                       style="display:inline-block; padding:13px 30px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:15px; font-weight:700; line-height:1.2; color:#ffffff; text-decoration:none; border-radius:10px;">
+                      Lançar notas
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+                <tr>
+                  <td class="aviso" style="background-color:#fff0cf; color:#8a5a00; border-radius:8px; padding:10px 14px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13.5px; font-weight:700; line-height:1.5;">
+                    Se você já lançou as notas, pode ignorar este e-mail.
+                  </td>
+                </tr>
+              </table>
+
+              <p class="texto-fraco"
+                 style="margin:0 0 6px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13px; line-height:1.5; color:#646a8a;">
+                Se o botão não funcionar, copie este endereço e cole no navegador:
+              </p>
+              <p style="margin:0 0 28px; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13px; line-height:1.5; word-break:break-all;">
+                <a href="{{link}}" target="_blank" class="link" style="color:#2f4fbf; font-weight:700; text-decoration:none;">{{link}}</a>
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+                <tr>
+                  <td class="borda" height="1" style="height:1px; line-height:1px; font-size:0; border-top:1px solid #e2e4ee;">&nbsp;</td>
+                </tr>
+              </table>
+
+              <p class="texto-fraco"
+                 style="margin:0; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13px; line-height:1.6; color:#646a8a;">
+                <strong class="texto" style="color:#1f2340;">Dúvidas?</strong>
+                Fale com a coordenação da escola.
+              </p>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td class="rodape bg-cartao-2 borda" style="background-color:#eef0f6; border-top:1px solid #e2e4ee; padding:18px 40px;">
+              <p class="texto-fraco"
+                 style="margin:0; font-family:'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:12px; line-height:1.6; color:#646a8a;">
+                Este é um e-mail automático, não responda a esta mensagem.<br>
+                &copy; {{ano}} EduTrackPro
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
