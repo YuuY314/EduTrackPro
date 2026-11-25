@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import EditarProfessor from '@/src/components/EditarProfessor';
 import Selecao from '@/src/components/Selecao';
+import { chaveOcupacao } from '@/src/components/SecaoVinculos';
 import {
   listarProfessoresAdmin,
   atualizarProfessorAdmin,
   excluirProfessorAdmin,
+  transferirVinculoProfessor,
   enviarLembreteProfessor,
 } from '@/src/lib/api';
 
@@ -63,21 +65,34 @@ export default function Professores() {
 
   const visiveis = professores.filter((p) => {
     const texto = `${p.nome} ${p.disciplina}`.toLowerCase();
-    return texto.includes(busca.toLowerCase()) && (disciplina === '' || p.disciplina.includes(disciplina));
+    // compara a disciplina inteira ("Física" não pode casar com "Educação Física")
+    const doProfessor = (p.disciplina || '').split(',').map((d) => d.trim());
+    return texto.includes(busca.toLowerCase()) && (disciplina === '' || doProfessor.includes(disciplina));
   });
 
+  // Quem já dá cada disciplina em cada turma, e a grade já ocupada de cada
+  // turma. O modal usa isso para bloquear, ANTES de salvar, o que daria erro.
+  const ocupacao = new Map();
+  const ocupados = [];
+  professores.forEach((p) => {
+    (p.vinculos ?? []).forEach((v) =>
+      ocupacao.set(chaveOcupacao(v.id_turma, v.disciplina), { id_professor: p.id, professor: p.nome })
+    );
+    (p.horarios ?? []).forEach((h) => ocupados.push({ ...h, id_professor: p.id, professor: p.nome }));
+  });
+
+  // Sem try/catch aqui de propósito: o erro volta para o modal, que fica aberto
+  // mostrando o motivo. Antes o erro era engolido, o modal fechava e parecia
+  // que "as alterações não foram salvas" sem explicação.
   async function salvar(dados) {
-    try {
-      setErro('');
-      await atualizarProfessorAdmin(editando, dados, {
-        turmasDisponiveis: turmas,
-        disciplinasDisponiveis: disciplinasLista,
-      });
-      await carregar(true);
-      setEditando(null);
-    } catch (e) {
-      setErro(e.message || 'Não foi possível salvar as alterações do professor.');
-    }
+    setErro('');
+    await atualizarProfessorAdmin(editando, dados);
+    await carregar(true);
+  }
+
+  async function transferir(idTdp, idDestino) {
+    await transferirVinculoProfessor(editando.id_professor, idTdp, idDestino);
+    await carregar(true);
   }
 
   async function excluir(professor) {
@@ -87,7 +102,7 @@ export default function Professores() {
       await excluirProfessorAdmin(professor.id_professor ?? professor.id);
       setProfessores((lista) => lista.filter((p) => p.id !== professor.id));
     } catch (e) {
-      setErro(e.message || 'Não foi possível excluir o professor (verifique se ele possui turmas vinculadas).');
+      setErro(e.message || 'Não foi possível excluir o professor.');
     }
   }
 
@@ -220,10 +235,14 @@ export default function Professores() {
           professor={editando}
           disciplinas={disciplinas}
           turmas={turmas}
+          ocupacao={ocupacao}
+          ocupados={ocupados}
+          professores={professores}
           onSalvar={salvar}
+          onTransferir={transferir}
           onFechar={() => setEditando(null)}
         />
       )}
     </>
   );
-}
+}

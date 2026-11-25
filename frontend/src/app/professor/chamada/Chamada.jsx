@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api, lerSessao, listarTodos } from '@/src/lib/api';
 import { hojeLocalISO } from '@/src/lib/utils';
+import { rotuloAula } from '@/src/lib/grade';
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -16,7 +17,12 @@ function obterDiaSemana(dataStr) {
 
 export default function Chamada() {
   const SearchParams = useSearchParams();
+  // ?tdp=ID do vínculo (turma+disciplina) e ?horario=ID do horário da grade.
+  // ?turma= continua aceito, mas só como id da TURMA: antes ele era comparado
+  // com o id da turma OU do vínculo, e "turma=1" podia abrir a disciplina errada.
+  const tdpUrl = SearchParams.get('tdp');
   const turmaUrl = SearchParams.get('turma');
+  const horarioUrl = SearchParams.get('horario');
 
   const [turmasProf, setTurmasProf] = useState([]);
   const [idTdpSelecionado, setIdTdpSelecionado] = useState('');
@@ -30,6 +36,20 @@ export default function Chamada() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
+  // se a chamada salva não carregou, NÃO deixa salvar: a tela mostraria todos
+  // "Presente" e salvar apagaria as faltas já lançadas
+  const [erroCarga, setErroCarga] = useState(false);
+  const [horariosProntos, setHorariosProntos] = useState(false);
+
+  // Ao trocar de turma, zera os horários antes de buscar os novos: antes o
+  // horário da turma ANTERIOR ficava selecionado por um instante e a chamada
+  // era buscada (ou salva) com o horário errado.
+  function trocarTurma(idTdp) {
+    setHorariosProntos(false);
+    setHorariosTdp([]);
+    setAulaSelecionada('');
+    setIdTdpSelecionado(String(idTdp));
+  }
 
   useEffect(() => {
     const sessao = lerSessao();
@@ -46,11 +66,12 @@ export default function Chamada() {
         setTurmasProf(lista);
 
         if (lista.length > 0) {
-          const encontrada = turmaUrl
-            ? lista.find((t) => String(t.id_turma) === String(turmaUrl) || String(t.id_tdp || t.id) === String(turmaUrl))
-            : null;
-            const escolhida = encontrada || lista[0];
-          setIdTdpSelecionado(String(escolhida.id_tdp || escolhida.id));
+          const encontrada =
+            (tdpUrl && lista.find((t) => String(t.id_tdp) === String(tdpUrl))) ||
+            (turmaUrl && lista.find((t) => String(t.id_turma) === String(turmaUrl))) ||
+            null;
+          const escolhida = encontrada || lista[0];
+          trocarTurma(escolhida.id_tdp || escolhida.id);
         } else {
           setCarregando(false);
         }
@@ -59,50 +80,67 @@ export default function Chamada() {
         setMensagem('Erro ao carregar turmas do professor.');
         setCarregando(false);
       });
-  }, [turmaUrl]);
+  }, [tdpUrl, turmaUrl]);
 
   useEffect(() => {
-  if (!idTdpSelecionado) return;
+    if (!idTdpSelecionado) return;
+    let ativo = true;
 
-  api(`/frequencia/horarios/${idTdpSelecionado}`)
-    .then((res) => {
-      setHorariosTdp(res?.dados || []);
-    })
-    .catch((err) => {
-      setHorariosTdp([]);
-      setMensagem(err.message || 'Erro ao carregar horários da turma.');
-    });
-}, [idTdpSelecionado]);
+    api(`/frequencia/horarios/${idTdpSelecionado}`)
+      .then((res) => {
+        if (ativo) setHorariosTdp(res?.dados || []);
+      })
+      .catch((err) => {
+        if (!ativo) return;
+        setHorariosTdp([]);
+        setMensagem(err.message || 'Erro ao carregar horários da turma.');
+      })
+      .finally(() => {
+        if (ativo) setHorariosProntos(true);
+      });
 
+    return () => {
+      ativo = false;
+    };
+  }, [idTdpSelecionado]);
+
+  const turmaSelecionada = turmasProf.find((t) => String(t.id_tdp || t.id) === String(idTdpSelecionado));
+
+  // Mesmo rótulo do cadastro de horários do admin (lib/grade.js):
+  //   dia com aula na grade -> "2ª aula · 07:50–08:40 · Sala 3A"
+  //   dia sem aula (reposição) -> "Segunda · 2ª aula · 07:50–08:40 · Sala 3A"
+  // Antes: "1ª aula" contava só as aulas DESTE professor no dia (não a posição
+  // na grade da turma) e, sem aula no dia, aparecia "Segunda 07:00".
   const opcoesAula = useMemo(() => {
     if (horariosTdp.length === 0) return [];
     const diaDaData = obterDiaSemana(dataAula);
     const doDia = horariosTdp.filter((h) => h.dia_semana === diaDaData);
-    // sem aula na grade nesse dia (ex.: reposição): oferece todos os horários da turma
     const listaBase = doDia.length > 0 ? doDia : horariosTdp;
+    const turno = turmaSelecionada?.turno;
 
-    return listaBase.map((h, index) => ({
+    return listaBase.map((h) => ({
       id: String(h.id),
-      rotulo: doDia.length > 0
-        ? `${index + 1}ª aula · ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`
-        : `${h.dia_semana} ${h.hora_inicio}${h.sala ? ` (${h.sala})` : ''}`,
+      rotulo: rotuloAula({ ...h, turno }, { comDia: doDia.length === 0 }),
     }));
-  }, [horariosTdp, dataAula]);
+  }, [horariosTdp, dataAula, turmaSelecionada?.turno]);
 
   useEffect(() => {
     if (opcoesAula.length > 0) {
       const aindaExiste = opcoesAula.some((o) => o.id === aulaSelecionada);
       if (!aindaExiste) {
-        setAulaSelecionada(opcoesAula[0].id);
+        const doLink = horarioUrl && opcoesAula.find((o) => o.id === String(horarioUrl));
+        setAulaSelecionada(doLink ? doLink.id : opcoesAula[0].id);
       }
     } else {
       setAulaSelecionada('');
     }
-  }, [opcoesAula, aulaSelecionada]);
+  }, [opcoesAula, aulaSelecionada, horarioUrl]);
 
   // Carrega alunos + a chamada já salva daquele dia E daquele horário
   useEffect(() => {
-    if (!idTdpSelecionado || !dataAula) return;
+    if (!idTdpSelecionado || !dataAula || !horariosProntos) return;
+    // tem horário na grade, mas o select ainda não escolheu um: espera
+    if (opcoesAula.length > 0 && !opcoesAula.some((o) => o.id === aulaSelecionada)) return;
 
     const turmaAtual = turmasProf.find((t) => String(t.id_tdp || t.id) === String(idTdpSelecionado));
     if (!turmaAtual) return;
@@ -110,11 +148,12 @@ export default function Chamada() {
     let ativo = true; // ignora respostas antigas se o professor trocar de turma/data/aula rápido
     setCarregando(true);
     setMensagem('');
+    setErroCarga(false);
 
     const filtroHorario = aulaSelecionada ? `&id_horario=${aulaSelecionada}` : '';
     Promise.all([
       listarTodos(`/aluno?id_turma=${turmaAtual.id_turma}`),
-      api(`/frequencia/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}${filtroHorario}`).catch(() => ({ dados: null })),
+      api(`/frequencia/chamada?id_tdp=${idTdpSelecionado}&data=${dataAula}${filtroHorario}`),
     ])
       .then(([listaAlunos, resChamada]) => {
         if (!ativo) return;
@@ -130,8 +169,10 @@ export default function Chamada() {
           setFaltasIds([]);
         }
       })
-      .catch(() => {
-        if (ativo) setMensagem('Erro ao carregar lista de alunos.');
+      .catch((erro) => {
+        if (!ativo) return;
+        setErroCarga(true);
+        setMensagem(erro.message || 'Erro ao carregar a chamada. Recarregue a página antes de salvar.');
       })
       .finally(() => {
         if (ativo) setCarregando(false);
@@ -140,7 +181,7 @@ export default function Chamada() {
     return () => {
       ativo = false;
     };
-  }, [idTdpSelecionado, dataAula, turmasProf, aulaSelecionada]);
+  }, [idTdpSelecionado, dataAula, turmasProf, aulaSelecionada, horariosProntos, opcoesAula]);
 
   function alternar(idAluno) {
     setMensagem('');
@@ -152,7 +193,7 @@ export default function Chamada() {
   }
 
   async function salvar() {
-    if (!idTdpSelecionado || alunos.length === 0) return;
+    if (!idTdpSelecionado || alunos.length === 0 || erroCarga) return;
 
     setSalvando(true);
     setMensagem('');
@@ -193,7 +234,7 @@ export default function Chamada() {
           <select 
             id="turma"
             value={idTdpSelecionado}
-            onChange={(e) => setIdTdpSelecionado(e.target.value)}
+            onChange={(e) => trocarTurma(e.target.value)}
             disabled={turmasProf.length === 0}
           >
             {turmasProf.map((t) => {
@@ -280,7 +321,7 @@ export default function Chamada() {
             {faltasIds.length === 1 ? 'falta' : 'faltas'}
           </span>
           <span className="mensagem" role="status">{mensagem}</span>
-          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || alunos.length === 0}>{salvando ? 'Salvando...' : 'Salvar chamada'}</button>
+          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || erroCarga || alunos.length === 0}>{salvando ? 'Salvando...' : 'Salvar chamada'}</button>
         </div>
       </div>
     </>

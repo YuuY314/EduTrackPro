@@ -58,7 +58,7 @@ export default function InicioProfessor() {
         <CartaoNumero numero={String(dados.totalTurmas)} texto="Turmas" href="/professor/turmas" />
         <CartaoNumero
           numero={String(dados.totalBaixaFrequencia)}
-          texto="Alunos abaixo de 75% de presença"
+          texto="Alunos abaixo de 75% nas suas aulas"
         />
       </div>
 
@@ -70,7 +70,7 @@ export default function InicioProfessor() {
           ) : (
             dados.aulasHoje.map((aula) => (
               <ListaItem key={aula.id} hora={aula.hora} titulo={aula.turma} detalhe={aula.detalhe}>
-                <Link className="botao botao-pequeno" href="/professor/chamada">
+                <Link className="botao botao-pequeno" href={aula.link}>
                   Fazer chamada
                 </Link>
               </ListaItem>
@@ -81,7 +81,7 @@ export default function InicioProfessor() {
         <div className="cartao cartao-conteudo">
           <h3>Frequência baixa em {dados.disciplinaPrincipal}</h3>
           {dados.alunosBaixaFrequencia.length === 0 ? (
-            <p className="dica">Todos os alunos estão com presença igual ou acima de 75%.</p>
+            <p className="dica">Nas suas aulas, todos os alunos estão com presença igual ou acima de 75%.</p>
           ) : (
             dados.alunosBaixaFrequencia.map((aluno) => (
               <ListaItem key={aluno.id} titulo={aluno.nome} detalhe={aluno.detalhe}>
@@ -95,4 +95,4 @@ export default function InicioProfessor() {
       </div>
     </>
   );
-}
+}

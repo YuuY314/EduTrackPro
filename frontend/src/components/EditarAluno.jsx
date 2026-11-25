@@ -85,6 +85,8 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
     const e = {};
     const { aluno: a, responsavel: r } = form;
     if (!a.nome.trim()) e['aluno.nome'] = 'Informe o nome';
+    // o e-mail institucional é o login do aluno: o backend exige
+    if (!emailValido(a.email_institucional)) e['aluno.email_institucional'] = 'Email inválido';
     if (a.cpf && !cpfValido(a.cpf)) e['aluno.cpf'] = 'CPF incompleto';
     if (a.email_institucional && !emailValido(a.email_institucional)) e['aluno.email_institucional'] = 'Email inválido';
     if (!r.nome.trim()) e['responsavel.nome'] = 'Informe o nome do responsável';
@@ -102,7 +104,12 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
 
     const turma = turmas.find((t) => String(t.id) === String(form.aluno.turma));
     const { aluno: a, responsavel: r } = form;
-    onSalvar({
+    // Antes: onSalvar sem await + fechar() na hora. Se o servidor recusasse
+    // (e-mail repetido, CPF duplicado...), o modal já tinha fechado.
+    setSalvando(true);
+    setErroEnvio('');
+    try {
+      await onSalvar({
       id_turma: Number(form.aluno.turma),
       nome: a.nome.trim(),
       turma: turma?.nome ?? aluno.turma,
@@ -112,8 +119,12 @@ export default function EditarAluno({ aluno, turmas, onSalvar, onFechar }) {
       endereco: a.endereco.trim(),
       responsavel: r.nome.trim(),
       responsavelDados: { ...r, nome: r.nome.trim(), email: r.email.trim() },
-    });
-    fechar();
+      });
+      fechar();
+    } catch (err) {
+      setErroEnvio(err.message || 'Não foi possível salvar.');
+      setSalvando(false);
+    }
   }
 
   return (
@@ -258,4 +269,4 @@ function Campo({ label, erro, full, children }) {
       {erro && <span className={styles.erro}>{erro}</span>}
     </label>
   );
-}
+}

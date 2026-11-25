@@ -15,6 +15,7 @@ export default function Selecao({
   autoFocus = false,
   multiplo = false,
   compacto = false,
+  desabilitado = false,
   id: idExterno,
 }) {
   const [aberta, setAberta] = useState(false);
@@ -97,7 +98,10 @@ export default function Selecao({
     setAberta(true);
   }
 
+  // opção com { desabilitada: true } aparece na lista (com o motivo no "detalhe"),
+  // mas não pode ser escolhida. Ex.: disciplina que já tem outro professor na turma.
   function escolher(opcao) {
+    if (opcao.desabilitada && !estaMarcada(opcao)) return;
     if (!multiplo) {
       onChange({ target: { value: opcao.value } });
       setAberta(false);
@@ -147,6 +151,7 @@ export default function Selecao({
         aria-controls={`${id}-lista`}
         aria-activedescendant={aberta && ativo >= 0 ? `${id}-${ativo}` : undefined}
         aria-invalid={erro || undefined}
+        disabled={desabilitado}
         autoFocus={autoFocus}
         className={`${styles.gatilho} ${compacto ? styles.compacto : ''} ${aberta ? styles.gatilhoAberto : ''}`}
         onClick={() => (aberta ? setAberta(false) : abrir())}
@@ -193,7 +198,8 @@ export default function Selecao({
                 id={`${id}-${i}`}
                 role="option"
                 aria-selected={marcada}
-                className={`${styles.opcao} ${i === ativo ? styles.ativa : ''} ${marcada ? styles.marcada : ''}`}
+                aria-disabled={o.desabilitada || undefined}
+                className={`${styles.opcao} ${i === ativo ? styles.ativa : ''} ${marcada ? styles.marcada : ''} ${o.desabilitada ? styles.desabilitada : ''}`}
                 style={{ animationDelay: `${i * 25}ms` }}
                 onMouseEnter={() => setAtivo(i)}
                 onMouseDown={(e) => e.preventDefault()}
@@ -211,4 +217,4 @@ export default function Selecao({
       )}
     </div>
   );
-}
+}

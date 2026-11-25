@@ -1,102 +1,107 @@
 'use client';
 
+// =====================================================================
+// SecaoHorarios - dia e horário de cada aula do professor
+//
+// Cada horário pertence a UMA linha da seção "Aulas" (turma + disciplina).
+// Antes o horário guardava só as turmas: ao salvar, o backend escolhia a
+// disciplina "no chute" e, para quem dá 2 matérias na mesma turma, as aulas
+// trocavam de matéria. A sala também se perdia a cada salvamento.
+//
+// Os horários seguem a grade de lib/grade.js (a mesma da chamada). Horário
+// já ocupado na turma por outro professor aparece bloqueado com o motivo.
+// =====================================================================
+
 import { useRef } from 'react';
 import styles from './EditarAluno.module.css';
 import extras from './SecaoHorarios.module.css';
 import Selecao from './Selecao';
+import { DIAS_SEMANA, fimPadrao, numeroParaDia, opcoesHorario, paraMinutos } from '@/src/lib/grade';
 
-const DIAS = [
-  { value: '1', label: 'Segunda-feira' },
-  { value: '2', label: 'Terça-feira' },
-  { value: '3', label: 'Quarta-feira' },
-  { value: '4', label: 'Quinta-feira' },
-  { value: '5', label: 'Sexta-feira' },
-  { value: '6', label: 'Sábado' },
-];
+const completo = (h) => h.vinculo && h.dia && h.hora_inicio;
+const sobrepoe = (a, b) =>
+  paraMinutos(a.inicio) < paraMinutos(b.fim) && paraMinutos(b.inicio) < paraMinutos(a.fim);
 
-const TURNOS = {
-  'Manhã': { inicio: '07:00', aulas: 6 },
-  'Tarde': { inicio: '13:00', aulas: 6 },
-  'Noite': { inicio: '19:00', aulas: 5 },
-};
-
-const DURACAO = 50;
-
-function somarMinutos(hora, minutos) {
-  const [h, m] = hora.split(':').map(Number);
-  const total = h * 60 + m + minutos;
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
-
-function horariosDoTurno(turno) {
-  const lista = turno && TURNOS[turno] ? [[turno, TURNOS[turno]]] : Object.entries(TURNOS);
-  return lista.flatMap(([nome, { inicio, aulas }]) =>
-    Array.from({ length: aulas }, (_, i) => {
-      const comeca = somarMinutos(inicio, i * DURACAO);
-      return {
-        value: comeca,
-        label: turno ? `${i + 1}ª aula` : `${nome} · ${i + 1}ª aula`,
-        detalhe: `${comeca} – ${somarMinutos(comeca, DURACAO)}`,
-      };
-    })
-  );
-}
-
-function normalizarTurma(t) {
-  if (typeof t !== 'object' || t === null) return { value: String(t), label: String(t) };
-  const value = String(t.id ?? t.id_turma ?? t.nome);
-  return { value, label: t.nome ?? value, detalhe: t.turno, turno: t.turno };
-}
-
-const turmasDe = (h) => (Array.isArray(h.turmas) ? h.turmas : h.turma ? [h.turma] : []).map(String);
-const completo = (h) => turmasDe(h).length && h.dia && h.hora;
-const chaveAula = (h) => `${h.dia}-${h.hora}`;
-
-export function limparHorarios(lista = []) {
-  const vistos = new Set();
+// Converte as linhas da tela no formato da API (ProfessorService).
+export function limparHorarios(lista = [], vinculos = []) {
+  const porChave = new Map(vinculos.map((v) => [v._chave, v]));
   return lista
     .filter(completo)
-    .filter((h) => {
-      const chave = chaveAula(h);
-      if (vistos.has(chave)) return false;
-      vistos.add(chave);
-      return true;
-    })
-    .map((h) => ({ turmas: turmasDe(h), dia: h.dia, hora: h.hora }))
-    .sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
+    .filter((h) => porChave.has(h.vinculo))
+    .map((h) => {
+      const v = porChave.get(h.vinculo);
+      return {
+        id_turma: Number(v.id_turma),
+        disciplina: v.disciplina,
+        dia: h.dia,
+        hora_inicio: h.hora_inicio,
+        hora_fim: h.hora_fim,
+        sala: h.sala ?? null,
+      };
+    });
 }
 
-export default function SecaoHorarios({ turmas = [], selecionadas, value = [], onChange, numero = '3' }) {
-  const proximaChave = useRef(value.length);
-  const todas = turmas.map(normalizarTurma);
-  const ids = selecionadas?.map(String);
-  const opcoesTurma = ids?.length ? todas.filter((t) => ids.includes(t.value)) : todas;
+export default function SecaoHorarios({
+  vinculos = [],
+  turmas = [],
+  value = [],
+  onChange,
+  ocupados = [],
+  idProfessor,
+  numero = '3',
+}) {
+  const proximaChave = useRef(0);
 
-  const linhas = value.map((h, i) => ({ ...h, turmas: turmasDe(h), _chave: h._chave ?? `h${i}` }));
+  const turmaPorId = new Map(turmas.map((t) => [String(t.id), t]));
+  const validos = vinculos.filter((v) => v.id_turma && v.disciplina);
+  const vinculoPorChave = new Map(validos.map((v) => [v._chave, v]));
+  const turnoDe = (h) => turmaPorId.get(String(vinculoPorChave.get(h.vinculo)?.id_turma))?.turno;
 
-  const repetidas = new Set();
-  const contagem = {};
-  linhas.filter(completo).forEach((h) => {
-    const chave = chaveAula(h);
-    contagem[chave] = (contagem[chave] ?? 0) + 1;
-    if (contagem[chave] > 1) repetidas.add(h._chave);
+  const opcoesAula = validos.map((v) => {
+    const turma = turmaPorId.get(String(v.id_turma));
+    return { value: v._chave, label: `${turma?.nome ?? 'Turma'} · ${v.disciplina}`, detalhe: turma?.turno };
   });
 
-  function atualizar(lista) {
-    onChange(lista);
+  // Aulas do próprio professor no mesmo dia e horário (mesmo em turmas diferentes)
+  const repetidas = new Set();
+  const preenchidas = value.filter(completo);
+  preenchidas.forEach((a, i) => {
+    preenchidas.slice(i + 1).forEach((b) => {
+      const ia = { inicio: a.hora_inicio, fim: a.hora_fim || fimPadrao(turnoDe(a), a.hora_inicio) };
+      const ib = { inicio: b.hora_inicio, fim: b.hora_fim || fimPadrao(turnoDe(b), b.hora_inicio) };
+      if (a.dia === b.dia && sobrepoe(ia, ib)) {
+        repetidas.add(a._chave);
+        repetidas.add(b._chave);
+      }
+    });
+  });
+
+  // Quem já ocupa a turma naquele dia/horário (outros professores)
+  function ocupante(idTurma, dia, inicio, fim) {
+    const diaBanco = numeroParaDia(dia);
+    return ocupados.find(
+      (o) =>
+        Number(o.id_professor) !== Number(idProfessor) &&
+        String(o.id_turma) === String(idTurma) &&
+        o.dia_semana === diaBanco &&
+        sobrepoe({ inicio, fim }, { inicio: o.hora_inicio, fim: o.hora_fim })
+    );
   }
 
   function alterar(chave, campo) {
     return (e) =>
-      atualizar(
-        linhas.map((h) => {
+      onChange(
+        value.map((h) => {
           if (h._chave !== chave) return h;
-          const novo = { ...h, [campo]: e.target.value };
-          if (campo === 'turmas') {
-            delete novo.turma;
-            const turnos = new Set(todas.filter((t) => novo.turmas.includes(t.value)).map((t) => t.turno));
-            const opcoes = horariosDoTurno(turnos.size === 1 ? [...turnos][0] : undefined).map((o) => o.value);
-            if (!opcoes.includes(novo.hora)) novo.hora = '';
+          const novo = { ...h, [campo]: String(e.target.value) };
+          if (campo === 'hora_inicio') novo.hora_fim = fimPadrao(turnoDe(novo), novo.hora_inicio);
+          if (campo === 'vinculo') {
+            // trocou para uma turma de outro turno: o horário antigo não vale mais
+            const opcoes = opcoesHorario(turnoDe(novo)).map((o) => o.value);
+            if (!opcoes.includes(novo.hora_inicio)) {
+              novo.hora_inicio = '';
+              novo.hora_fim = '';
+            }
           }
           return novo;
         })
@@ -105,12 +110,15 @@ export default function SecaoHorarios({ turmas = [], selecionadas, value = [], o
 
   function adicionar() {
     proximaChave.current += 1;
-    const turmasPadrao = opcoesTurma.length === 1 ? [opcoesTurma[0].value] : [];
-    atualizar([...linhas, { _chave: `n${proximaChave.current}`, turmas: turmasPadrao, dia: '', hora: '' }]);
+    const vinculoPadrao = opcoesAula.length === 1 ? opcoesAula[0].value : '';
+    onChange([
+      ...value,
+      { _chave: `nh${proximaChave.current}`, vinculo: vinculoPadrao, dia: '', hora_inicio: '', hora_fim: '', sala: null },
+    ]);
   }
 
   function remover(chave) {
-    atualizar(linhas.filter((h) => h._chave !== chave));
+    onChange(value.filter((h) => h._chave !== chave));
   }
 
   return (
@@ -123,59 +131,107 @@ export default function SecaoHorarios({ turmas = [], selecionadas, value = [], o
         </div>
       </div>
 
-      {linhas.length > 0 && (
+      {value.length > 0 && (
         <ul className={extras.linhas}>
-            {linhas.map((h, i) => {
-              const turnos = new Set(todas.filter((t) => h.turmas.includes(t.value)).map((t) => t.turno));
-              const turnoUnico = turnos.size === 1 ? [...turnos][0] : undefined;
-              const repetida = repetidas.has(h._chave);
-              return (
-                <li key={h._chave} className={extras.linha}>
-                  <div className={extras.campos}>
-                    <Selecao
-                      multiplo
-                      value={h.turmas}
-                      onChange={alterar(h._chave, 'turmas')}
-                      placeholder="Selecione as turmas"
-                      opcoes={opcoesTurma.map(({ value, label, detalhe }) => ({ value, label, detalhe }))}
-                    />
-                    <Selecao
-                      value={h.dia}
-                      onChange={alterar(h._chave, 'dia')}
-                      placeholder="Dia da semana"
-                      erro={repetida}
-                      opcoes={DIAS}
-                    />
-                    <Selecao
-                      value={h.hora}
-                      onChange={alterar(h._chave, 'hora')}
-                      placeholder="Horário"
-                      erro={repetida}
-                      opcoes={horariosDoTurno(turnoUnico)}
-                    />
-                    <button
-                      type="button"
-                      className={extras.remover}
-                      onClick={() => remover(h._chave)}
-                      aria-label={`Remover aula ${i + 1}`}
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
-                      </svg>
-                    </button>
-                  </div>
-                  {repetida && <span className={styles.erro}>Já existe uma aula neste dia e horário</span>}
-                </li>
-              );
-            })}
+          {value.map((h, i) => {
+            const vinculo = vinculoPorChave.get(h.vinculo);
+            const turno = turnoDe(h);
+            const repetida = repetidas.has(h._chave);
+            const opcoesHora = opcoesHorario(turno, [h.hora_inicio]).map((o) => {
+              const quem =
+                vinculo && h.dia && ocupante(vinculo.id_turma, h.dia, o.value, fimPadrao(turno, o.value));
+              return quem
+                ? { ...o, desabilitada: true, detalhe: `Ocupado: ${quem.disciplina} (${quem.professor})` }
+                : o;
+            });
+            const conflito =
+              vinculo && completo(h) && ocupante(vinculo.id_turma, h.dia, h.hora_inicio, h.hora_fim || fimPadrao(turno, h.hora_inicio));
+            return (
+              <li key={h._chave} className={extras.linha}>
+                <div className={extras.campos}>
+                  <Selecao
+                    value={h.vinculo}
+                    onChange={alterar(h._chave, 'vinculo')}
+                    placeholder={opcoesAula.length ? 'Turma e disciplina' : 'Adicione uma turma em "Aulas"'}
+                    erro={Boolean(h.vinculo) && !vinculo}
+                    opcoes={opcoesAula}
+                  />
+                  <Selecao
+                    value={h.dia}
+                    onChange={alterar(h._chave, 'dia')}
+                    placeholder="Dia da semana"
+                    erro={repetida || Boolean(conflito)}
+                    opcoes={DIAS_SEMANA}
+                  />
+                  <Selecao
+                    value={h.hora_inicio}
+                    onChange={alterar(h._chave, 'hora_inicio')}
+                    placeholder="Horário"
+                    erro={repetida || Boolean(conflito)}
+                    opcoes={opcoesHora}
+                  />
+                  <button
+                    type="button"
+                    className={extras.remover}
+                    onClick={() => remover(h._chave)}
+                    aria-label={`Remover horário ${i + 1}`}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+                    </svg>
+                  </button>
+                </div>
+                {repetida && <span className={styles.erro}>O professor já tem outra aula neste dia e horário</span>}
+                {conflito && (
+                  <span className={styles.erro}>
+                    Horário ocupado na turma: {conflito.disciplina} ({conflito.professor})
+                  </span>
+                )}
+                {h.sala && <span className={extras.aviso}>Sala: {h.sala}</span>}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {linhas.length === 0 && <p className={extras.vazio}>Nenhum horário cadastrado.</p>}
+      {value.length === 0 && <p className={extras.vazio}>Nenhum horário cadastrado.</p>}
 
-      <button type="button" className={extras.adicionar} onClick={adicionar}>
+      <button type="button" className={extras.adicionar} onClick={adicionar} disabled={opcoesAula.length === 0}>
         + Adicionar horário
       </button>
     </section>
   );
+}
+
+// Para o EditarProfessor saber, antes de enviar, se há algo a corrigir.
+export function temProblemaNosHorarios(value, vinculos, turmas, ocupados, idProfessor) {
+  const turmaPorId = new Map(turmas.map((t) => [String(t.id), t]));
+  const porChave = new Map(vinculos.filter((v) => v.id_turma && v.disciplina).map((v) => [v._chave, v]));
+  const linhas = value.filter((h) => h.vinculo || h.dia || h.hora_inicio);
+
+  for (const h of linhas) {
+    if (!completo(h) || !porChave.has(h.vinculo)) return 'Complete ou remova os horários incompletos.';
+  }
+  const comFaixa = linhas.map((h) => {
+    const v = porChave.get(h.vinculo);
+    const turno = turmaPorId.get(String(v.id_turma))?.turno;
+    return { ...h, id_turma: v.id_turma, inicio: h.hora_inicio, fim: h.hora_fim || fimPadrao(turno, h.hora_inicio) };
+  });
+  for (let i = 0; i < comFaixa.length; i++) {
+    for (let j = i + 1; j < comFaixa.length; j++) {
+      if (comFaixa[i].dia === comFaixa[j].dia && sobrepoe(comFaixa[i], comFaixa[j])) {
+        return 'Há duas aulas do professor no mesmo dia e horário.';
+      }
+    }
+    const h = comFaixa[i];
+    const choque = ocupados.find(
+      (o) =>
+        Number(o.id_professor) !== Number(idProfessor) &&
+        String(o.id_turma) === String(h.id_turma) &&
+        o.dia_semana === numeroParaDia(h.dia) &&
+        sobrepoe(h, { inicio: o.hora_inicio, fim: o.hora_fim })
+    );
+    if (choque) return `Um dos horários já está ocupado na turma por ${choque.disciplina} (${choque.professor}).`;
+  }
+  return '';
 }

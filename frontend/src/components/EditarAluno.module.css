@@ -460,3 +460,13 @@
     transition: none !important;
   }
 }
+/* mensagem de erro do envio ao lado dos botões (fica visível sem rolar o modal) */
+.rodape {
+  flex-wrap: wrap;
+}
+
+.rodape > .erro {
+  flex: 1 1 220px;
+  align-self: center;
+  margin-right: auto;
+}

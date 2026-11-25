@@ -128,7 +128,10 @@ export default function CadastroPage() {
 
   async function cadastrar() {
     const { email, senha, perfil } = usuario;
-    const dadosPessoa = { ...pessoa, email: emailPessoa, senha };
+    // email_login = e-mail de acesso (seção 1); email = contato (seção 2).
+    // Antes, com "Usar o mesmo email" desmarcado, o e-mail de acesso digitado
+    // era descartado e a pessoa só entrava com o e-mail de contato.
+    const dadosPessoa = { ...pessoa, email: emailPessoa, email_login: email, senha };
     if (perfil === "professor") return admin.criarProfessor(dadosPessoa);
     if (perfil === "admin") return admin.criarAdministrador(dadosPessoa);
     return admin.criarAluno({
@@ -517,4 +520,4 @@ function Icone({ tipo }) {
       <path d="M9 12l2 2 4-4" />
     </svg>
   );
-}
+}

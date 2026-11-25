@@ -3,18 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Etiqueta from '@/src/components/Etiqueta';
-import { api, lerSessao } from '@/src/lib/api';
+import { api, lerSessao, listarTodos } from '@/src/lib/api';
 import { bimestreAtual, corDaNota, media, PESOS_AVALIACOES } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
 
-const bimestres = [
-  { value: '3', label: '3º Bimestre' },
-  { value: '4', label: '4º Bimestre' },
-];
-
 export default function Notas() {
   const searchParams = useSearchParams();
+  // ?tdp=ID do vínculo (turma+disciplina); ?turma= só como id da turma (ver Chamada.jsx)
+  const tdpUrl = searchParams.get('tdp');
   const turmaUrl = searchParams.get('turma');
 
   const [turmasProf, setTurmasProf] = useState([]);
@@ -25,10 +22,12 @@ export default function Notas() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
-  // abre no bimestre atual (se ele estiver na lista)
-  const [bimestre, setBimestre] = useState(
-    () => bimestres.find((b) => b.value === String(bimestreAtual()))?.value ?? bimestres[0].value
-  );
+  // abre no bimestre atual. Antes a lista "padrão" só tinha o 3º e o 4º:
+  // no 1º e no 2º bimestre a tela abria no 3º sem avisar.
+  const [bimestre, setBimestre] = useState(() => String(bimestreAtual()));
+  // se as notas salvas não carregaram, NÃO deixa salvar: a tela mostraria tudo
+  // em branco e "Salvar" apagaria as notas já lançadas
+  const [erroCarga, setErroCarga] = useState(false);
 
   useEffect(() => {
     const sessao = lerSessao();
@@ -45,13 +44,10 @@ export default function Notas() {
         setTurmasProf(lista);
 
         if (lista.length > 0) {
-          const encontrada = turmaUrl
-            ? lista.find(
-                (t) =>
-                  String(t.id_turma) === String(turmaUrl) ||
-                  String(t.id_tdp || t.id) === String(turmaUrl)
-              )
-            : null;
+          const encontrada =
+            (tdpUrl && lista.find((t) => String(t.id_tdp) === String(tdpUrl))) ||
+            (turmaUrl && lista.find((t) => String(t.id_turma) === String(turmaUrl))) ||
+            null;
           const escolhida = encontrada || lista[0];
           setIdTdpSelecionado(String(escolhida.id_tdp || escolhida.id));
         } else {
@@ -62,7 +58,7 @@ export default function Notas() {
         setMensagem('Erro ao carregar turmas do professor.');
         setCarregando(false);
       });
-  }, [turmaUrl]);
+  }, [tdpUrl, turmaUrl]);
 
   useEffect(() => {
     if (!idTdpSelecionado || !bimestre) return;
@@ -72,17 +68,17 @@ export default function Notas() {
     );
     if (!turmaAtual) return;
 
+    let ativo = true; // ignora respostas antigas se trocar de turma/bimestre rápido
     setCarregando(true);
     setMensagem('');
+    setErroCarga(false);
 
     Promise.all([
-      api(`/aluno?id_turma=${turmaAtual.id_turma}&limite=100`),
-      api(`/nota/boletim?id_tdp=${idTdpSelecionado}&bimestre=${bimestre}`).catch(() => ({
-        dados: { avaliacoes: [], notas: [] },
-      })),
+      listarTodos(`/aluno?id_turma=${turmaAtual.id_turma}`),
+      api(`/nota/boletim?id_tdp=${idTdpSelecionado}&bimestre=${bimestre}`),
     ])
-      .then(([resAlunos, resBoletim]) => {
-        const listaAlunos = resAlunos?.dados || [];
+      .then(([listaAlunos, resBoletim]) => {
+        if (!ativo) return;
         const avalsBanco = resBoletim?.dados?.avaliacoes || [];
         const notasBanco = resBoletim?.dados?.notas || [];
 
@@ -113,12 +109,18 @@ export default function Notas() {
 
         setLinhas(linhasMontadas);
       })
-      .catch(() => {
-        setMensagem('Erro ao carregar alunos e notas.');
+      .catch((erro) => {
+        if (!ativo) return;
+        setErroCarga(true);
+        setMensagem(erro.message || 'Erro ao carregar alunos e notas. Recarregue a página antes de salvar.');
       })
       .finally(() => {
-        setCarregando(false);
+        if (ativo) setCarregando(false);
       });
+
+    return () => {
+      ativo = false;
+    };
   }, [idTdpSelecionado, bimestre, turmasProf]);
 
   function mudarNota(indiceAluno, indiceNota, valor) {
@@ -134,7 +136,7 @@ export default function Notas() {
   }
 
   async function salvar() {
-    if (!idTdpSelecionado || linhas.length === 0) return;
+    if (!idTdpSelecionado || linhas.length === 0 || erroCarga) return;
 
     setSalvando(true);
     setMensagem('');
@@ -262,7 +264,7 @@ export default function Notas() {
         <div className="cartao-rodape">
           <span className="dica">Média = Prova 1 × 40% + Prova 2 × 30% + Trabalho × 30%</span>
           <span className="mensagem" role="status">{mensagem}</span>
-          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || linhas.length === 0}>{salvando ? 'Salvando...' : 'Salvar notas'}</button>
+          <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || erroCarga || linhas.length === 0}>{salvando ? 'Salvando...' : 'Salvar notas'}</button>
         </div>
       </div>
     </>

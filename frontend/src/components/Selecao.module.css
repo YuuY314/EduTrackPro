@@ -247,3 +247,22 @@
     transition: none;
   }
 }
+/* opção que aparece mas não pode ser escolhida (ex.: horário já ocupado).
+   A opacidade vai nos filhos: a animação "entrar" da .opcao termina em
+   opacity: 1 e anularia a opacidade colocada no próprio item. */
+.desabilitada {
+  cursor: not-allowed;
+}
+
+.desabilitada > * {
+  opacity: 0.5;
+}
+
+.desabilitada .check {
+  border-style: dashed;
+}
+
+.gatilho:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

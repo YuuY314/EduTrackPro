@@ -45,7 +45,7 @@ export default function MinhasTurmas() {
               <div><strong>{turma.alunos}</strong><small>ALUNOS</small></div>
               <div>
                 <strong>
-                  <Etiqueta cor={corDaNota(turma.media ?? 0)}>
+                  <Etiqueta cor={corDaNota(turma.media)}>
                     {turma.media !== null ? turma.media : '—'}
                   </Etiqueta>
                 </strong>
@@ -55,8 +55,9 @@ export default function MinhasTurmas() {
             </div>
 
             <div className="turma-botoes">
-              <Link className="botao botao-pequeno" href="/professor/chamada">Chamada</Link>
-              <Link className="botao botao-pequeno botao-contorno" href="/professor/notas">Notas</Link>
+              {/* leva a turma/disciplina deste cartão (antes abria sempre a primeira da lista) */}
+              <Link className="botao botao-pequeno" href={`/professor/chamada?tdp=${turma.id_tdp}`}>Chamada</Link>
+              <Link className="botao botao-pequeno botao-contorno" href={`/professor/notas?tdp=${turma.id_tdp}`}>Notas</Link>
             </div>
           </div>
         ))}

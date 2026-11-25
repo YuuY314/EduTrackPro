@@ -45,16 +45,13 @@ export default function Alunos() {
     return texto.includes(busca.toLowerCase()) && (turno === '' || a.turno === turno);
   });
 
+  // O erro volta para o modal (que continua aberto mostrando o motivo).
   async function salvar(dados) {
-    try {
-      setErro('');
-      await atualizarAlunoAdmin(editando.id_aluno, editando.id_responsavel, dados);
-      setAlunos((atual) =>
-        atual.map((a) => (a.id_aluno === editando.id_aluno ? { ...a, ...dados } : a))
-      );
-    } catch (e) {
-      setErro(e.message || 'Não foi possível salvar as alterações do aluno.');
-    }
+    setErro('');
+    await atualizarAlunoAdmin(editando.id_aluno, editando.id_responsavel, dados);
+    setAlunos((atual) =>
+      atual.map((a) => (a.id_aluno === editando.id_aluno ? { ...a, ...dados } : a))
+    );
   }
 
   async function excluir(aluno) {
@@ -166,4 +163,4 @@ export default function Alunos() {
       )}
     </>
   );
-}
+}

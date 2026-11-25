@@ -1,6 +1,7 @@
 // Comunicação com o backend + sessão (token) guardada no navegador.
 
 import { bimestreAtual, hojeLocalISO } from './utils';
+import { rotuloAula } from './grade';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const CHAVE_SESSAO = 'edutrackpro:sessao';
@@ -224,20 +225,19 @@ export async function buscarDashboardProfessor() {
   const listaTdp = resTdp?.dados ?? [];
   const turmasUnicas = Array.from(new Map(listaTdp.map((t) => [Number(t.id_turma), t])).values());
 
-  // 2) Em paralelo: alunos de cada turma, faltas, grade, notas do bimestre e chamada de hoje
-  const [alunosPorTurma, listaFaltas, horariosPorTdp, notasPorTdp, chamadaHojePorTdp] = await Promise.all([
+  // 2) Em paralelo: presença por disciplina, grade, notas do bimestre e chamada de hoje
+  const [resumoPorTdp, horariosPorTdp, boletimPorTdp, chamadaHojePorTdp] = await Promise.all([
+    // presença de cada aluno NA MATÉRIA do professor (antes: frequência geral do
+    // aluno somando todas as matérias, que não dizia nada sobre a aula dele)
     Promise.all(
-      turmasUnicas.map((t) =>
-        listarTodos(`/aluno?id_turma=${t.id_turma}`).then((alunos) => alunos.map((a) => ({ ...a, turno: t.turno })))
-      )
+      listaTdp.map((t) => api(`/frequencia/resumo/${t.id_tdp}`).then((r) => r?.dados ?? []).catch(() => []))
     ),
-    listarTodos('/faltas_aluno').catch(() => []),
     Promise.all(listaTdp.map((t) => api(`/frequencia/horarios/${t.id_tdp}`).then((r) => r?.dados ?? []).catch(() => []))),
     Promise.all(
       listaTdp.map((t) =>
         api(`/nota/boletim?id_tdp=${t.id_tdp}&bimestre=${bimestre}`)
-          .then((r) => r?.dados?.notas ?? [])
-          .catch(() => [])
+          .then((r) => r?.dados ?? { avaliacoes: [], notas: [] })
+          .catch(() => null)
       )
     ),
     Promise.all(
@@ -260,9 +260,13 @@ export async function buscarDashboardProfessor() {
         aulasHoje.push({
           id: `h-${h.id}`,
           idTdp: Number(tdp.id_tdp),
-          hora: `${String(h.hora_inicio).slice(0, 5)} - ${String(h.hora_fim).slice(0, 5)}`,
+          // mesmo rótulo da chamada e do cadastro de horários (lib/grade.js)
+          hora: rotuloAula({ ...h, turno: tdp.turno }, { comSala: false }),
+          ordem: String(h.hora_inicio).slice(0, 5),
           turma: nomeDaTurma(tdp),
           detalhe: tdp.disciplina || 'Aula',
+          // abre a chamada já na turma/disciplina e no horário certos
+          link: `/professor/chamada?tdp=${tdp.id_tdp}&horario=${h.id}`,
         });
       });
   });
@@ -276,33 +280,44 @@ export async function buscarDashboardProfessor() {
         id: `aula-${aula.id_aula}`,
         idTdp: Number(tdp.id_tdp),
         hora: 'Chamada registrada',
+        ordem: '99:99',
         turma: nomeDaTurma(tdp),
         detalhe: tdp.disciplina || 'Aula',
+        link: `/professor/chamada?tdp=${tdp.id_tdp}`,
       });
     }
   });
-  aulasHoje.sort((a, b) => a.hora.localeCompare(b.hora));
+  aulasHoje.sort((a, b) => a.ordem.localeCompare(b.ordem));
 
-  // 4) Alunos (só os das turmas do professor) com presença abaixo de 75%
-  const mapaAlunos = new Map(alunosPorTurma.flat().map((a) => [Number(a.id_aluno), a]));
-  const alunosBaixaFrequencia = listaFaltas
-    .filter((f) => mapaAlunos.has(Number(f.id_aluno)) && Number(f.percentual_presenca) < 75)
-    .map((f) => {
-      const aluno = mapaAlunos.get(Number(f.id_aluno));
-      return {
-        id: Number(f.id_aluno),
-        nome: f.aluno || aluno.nome,
-        detalhe: [aluno.turma, aluno.turno].filter(Boolean).join(' · '),
-        frequencia: Math.round(Number(f.percentual_presenca)),
-      };
-    })
-    .sort((a, b) => a.frequencia - b.frequencia);
+  // 4) Alunos com presença abaixo de 75% NA DISCIPLINA do professor.
+  //    Um aluno pode aparecer duas vezes se estiver mal em duas matérias dele.
+  const alunosBaixaFrequencia = [];
+  listaTdp.forEach((tdp, i) => {
+    resumoPorTdp[i]
+      .filter((r) => r.total_aulas > 0 && r.percentual_presenca !== null && r.percentual_presenca < 75)
+      .forEach((r) => {
+        alunosBaixaFrequencia.push({
+          id: `${r.id_aluno}-${tdp.id_tdp}`,
+          idAluno: Number(r.id_aluno),
+          nome: r.aluno,
+          detalhe: `${nomeDaTurma(tdp)} · ${tdp.disciplina} · ${r.faltas} ${r.faltas === 1 ? 'falta' : 'faltas'} em ${r.total_aulas} ${r.total_aulas === 1 ? 'aula' : 'aulas'}`,
+          frequencia: Math.round(r.percentual_presenca),
+        });
+      });
+  });
+  alunosBaixaFrequencia.sort((a, b) => a.frequencia - b.frequencia);
 
-  // 5) Turmas com alguma disciplina do professor ainda sem nota no bimestre ATUAL
-  //    (antes contava os 4 bimestres, inclusive os que nem começaram)
+  // 5) Turmas com notas pendentes no bimestre ATUAL - MESMA regra rígida do
+  //    admin (AdminService.TDP_PENDENTE): pendente se não tem avaliação no
+  //    bimestre ou se alguma avaliação ainda não tem nenhuma nota.
   const turmasSemNotaIds = new Set();
   listaTdp.forEach((tdp, i) => {
-    if (notasPorTdp[i].length === 0) turmasSemNotaIds.add(Number(tdp.id_turma));
+    const boletim = boletimPorTdp[i];
+    if (!boletim) return; // não carregou: não acusa pendência sem saber
+    const comNota = new Set(boletim.notas.map((n) => Number(n.id_avaliacao)));
+    const pendente =
+      boletim.avaliacoes.length === 0 || boletim.avaliacoes.some((a) => !comNota.has(Number(a.id_avaliacao)));
+    if (pendente) turmasSemNotaIds.add(Number(tdp.id_turma));
   });
 
   const disciplinasUnicas = [...new Set(listaTdp.map((t) => t.disciplina).filter(Boolean))];
@@ -312,7 +327,7 @@ export async function buscarDashboardProfessor() {
     totalAulasHoje: aulasHoje.length,
     turmasSemNota: turmasSemNotaIds.size,
     totalTurmas: turmasUnicas.length,
-    totalBaixaFrequencia: alunosBaixaFrequencia.length,
+    totalBaixaFrequencia: new Set(alunosBaixaFrequencia.map((a) => a.idAluno)).size,
     aulasHoje,
     alunosBaixaFrequencia,
     disciplinaPrincipal: disciplinasUnicas.length === 1 ? disciplinasUnicas[0] : 'suas turmas',
@@ -397,41 +412,32 @@ export async function listarAlunosAdmin() {
   return { alunos, turmas };
 }
 
-//alterações no banco dos dados do aluno e seus responsaveis
-//alterações no banco dos dados do aluno e seus responsaveis
-export async function atualizarAlunoAdmin(idAluno, idResponsavel, dados) {
-  const { responsavelDados, ...camposAluno } = dados;
-
-  const requisicoes = [
-    api(`/aluno/${idAluno}`, {
-      metodo: 'PUT',
-      corpo: {
-        id_turma: camposAluno.id_turma,
-        nome: camposAluno.nome,
-        cpf: camposAluno.cpf,
-        email_institucional: camposAluno.email_institucional,
-        endereco: camposAluno.endereco,
-      },
-    }),
-  ];
-
-  if (idResponsavel && responsavelDados) {
-    requisicoes.push(
-      api(`/responsavel/${idResponsavel}`, {
-        metodo: 'PUT',
-        corpo: {
+// Salva aluno + responsável numa TRANSAÇÃO só (/admin/alunos/:id).
+// Antes eram dois PUTs em paralelo (/aluno e /responsavel): se um falhasse o
+// outro ficava gravado pela metade, e campos vazios do responsável eram
+// preenchidos com dados falsos ("000.000.000-00", "(00) 00000-0000", "Outro").
+// Campo vazio agora = "manter o que já estava" (o backend usa COALESCE).
+export async function atualizarAlunoAdmin(idAluno, _idResponsavel, dados) {
+  const { responsavelDados } = dados;
+  return await api(`/admin/alunos/${idAluno}`, {
+    metodo: 'PUT',
+    corpo: {
+      id_turma: dados.id_turma,
+      nome: dados.nome,
+      cpf: dados.cpf,
+      email_institucional: dados.email_institucional,
+      endereco: dados.endereco,
+      ...(responsavelDados && {
+        responsavel: {
           nome: responsavelDados.nome,
-          cpf: responsavelDados.cpf || '000.000.000-00',
-          parentesco: responsavelDados.parentesco || 'Outro',
-          telefone: responsavelDados.telefone || '(00) 00000-0000',
+          cpf: responsavelDados.cpf,
+          parentesco: responsavelDados.parentesco,
+          telefone: responsavelDados.telefone,
           email: responsavelDados.email || null,
         },
-      })
-    );
-  }
-
-  const [alunoAtualizado] = await Promise.all(requisicoes);
-  return alunoAtualizado;
+      }),
+    },
+  });
 }
 
 export async function excluirAlunoAdmin(idAluno) {
@@ -442,96 +448,48 @@ export async function excluirAlunoAdmin(idAluno) {
 
 // ==================== Administrador: Professores ====================
 
-//montagem da tabela e os filtros
+// Monta a tabela de professores e os dados do modal de edição.
+// O /professor já devolve, de cada professor, os vínculos (turma + disciplina)
+// e os horários. A situação das notas vem do /admin/professores, que usa a
+// MESMA regra do painel do admin (antes esta tela recalculava com outra regra
+// e baixava TODAS as notas da escola só para isso, e o painel e esta tela
+// podiam discordar sobre quem estava atrasado).
+// Nada aqui "engole" erro: com dados faltando o modal mostraria o professor sem
+// turmas e, ao salvar, tiraria as turmas dele.
 export async function listarProfessoresAdmin() {
-  //se baseia no mês em que estamos para verificar as notas do bimestre (mesma regra do backend)
   const bimestre = bimestreAtual();
 
-  //faz seis requisições ao mesmo tempo e garante que se ouver rota vazia ou falha a tela não quebra 
-  const [resProf, resTdp, resDisc, resTurmas, resAval, resNotas] = await Promise.all([
-    listarTodos('/professor').then((dados) => ({ dados })),
-    listarTodos('/turma_disciplina_professor').then((dados) => ({ dados })).catch(() => ({ turma_disciplina_professor: [] })),
-    listarTodos('/disciplina').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
-    listarTodos('/turma').then((dados) => ({ dados })).catch(() => ({ turmas: [] })),
-    listarTodos('/avaliacao').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
-    listarTodos('/nota').then((dados) => ({ dados })).catch(() => ({ dados: [] })),
+  const [listaProf, situacoes, listaDisc, listaTurmas] = await Promise.all([
+    listarTodos('/professor'),
+    api('/admin/professores'),
+    listarTodos('/disciplina'),
+    listarTodos('/turma'),
   ]);
 
-  //montagem das linhas da tela filtrando os registros pertencentes ao professor
-  const listaProf = Array.isArray(resProf) ? resProf : (resProf?.dados ?? []);
-  const listaTdp = Array.isArray(resTdp)
-    ? resTdp
-    : (resTdp?.turma_disciplina_professor ?? resTdp?.dados ?? []);
-  const listaDisc = Array.isArray(resDisc)
-    ? resDisc
-    : (resDisc?.disciplinas ?? resDisc?.dados ?? []);
-  const listaTurmas = Array.isArray(resTurmas)
-    ? resTurmas
-    : (resTurmas?.turmas ?? resTurmas?.dados ?? []);
-  const listaAval = Array.isArray(resAval)
-    ? resAval
-    : (resAval?.avaliacoes ?? resAval?.dados ?? []);
-  const listaNotas = Array.isArray(resNotas)
-    ? resNotas
-    : (resNotas?.notas ?? resNotas?.dados ?? []);
-
-  const mapaDisc = new Map(listaDisc.map((d) => [Number(d.id_disciplina ?? d.id), d]));
-  const mapaTurmas = new Map(listaTurmas.map((t) => [Number(t.id_turma ?? t.id), t]));
-  const avaliacoesComNota = new Set(listaNotas.map((n) => Number(n.id_avaliacao)));
+  const situacaoPorId = new Map((situacoes ?? []).map((s) => [Number(s.id_professor), s.situacao]));
 
   const professores = listaProf.map((p) => {
-    const idProf = Number(p.id_professor ?? p.id);
-    const vinculos = listaTdp.filter((v) => Number(v.id_professor) === idProf);
-
-    //altera os IDs para nomes e remove duplicações 
-    const nomesDisciplinas = [
-      ...new Set(
-        vinculos
-          .map((v) => v.disciplina || v.nome_disciplina || mapaDisc.get(Number(v.id_disciplina))?.nome)
-          .filter(Boolean)
-      ),
-    ];
+    const idProf = Number(p.id_professor);
+    const vinculos = p.vinculos ?? [];
 
     const turmasUnicas = new Map();
     vinculos.forEach((v) => {
-      const turmaObj = mapaTurmas.get(Number(v.id_turma));
-      const nome = v.turma || v.nome_turma || turmaObj?.nome;
-      const turno = v.periodo || v.turno || turmaObj?.periodo || turmaObj?.turno || '';
-      if (nome && !turmasUnicas.has(nome)) {
-        turmasUnicas.set(nome, { nome, turno });
+      if (!turmasUnicas.has(Number(v.id_turma))) {
+        turmasUnicas.set(Number(v.id_turma), { nome: v.turma, turno: v.turno || '' });
       }
     });
-
     const turmasDetalhes = Array.from(turmasUnicas.values());
-    const nomesTurmas = turmasDetalhes.map((t) => t.nome);
-
-    //calcula a situação de lançamento de notas do professor no bimestre atual
-    let situacao = 'novo';
-    if (vinculos.length > 0) {
-      const idsTdp = new Set(vinculos.map((v) => Number(v.id ?? v.id_tdp)));
-      const avalsBimestre = listaAval.filter(
-        (a) => idsTdp.has(Number(a.id_tdp)) && Number(a.bimestre) === bimestre
-      );
-
-      if (avalsBimestre.length === 0) {
-        situacao = 'atrasado';
-      } else {
-        const todasLancadas = avalsBimestre.every((a) =>
-          avaliacoesComNota.has(Number(a.id_avaliacao ?? a.id))
-        );
-        situacao = todasLancadas ? 'em-dia' : 'atrasado';
-      }
-    }
 
     return {
       ...p,
       id: idProf,
       id_professor: idProf,
-      disciplina: nomesDisciplinas.join(', ') || 'Sem disciplina',
-      turmas: nomesTurmas.join(', ') || '–',
+      disciplina: p.disciplina || 'Sem disciplina',
+      turmas: turmasDetalhes.map((t) => t.nome).join(', ') || '–',
       turmasDetalhes,
       vinculos,
-      situacao,
+      horarios: p.horarios ?? [],
+      situacao: situacaoPorId.get(idProf) ?? 'novo',
     };
   });
 
@@ -553,54 +511,29 @@ export async function listarProfessoresAdmin() {
   return { professores, turmas, disciplinas, bimestreAtual: bimestre };
 }
 
-// Atualiza dados pessoais do professor, vínculos (disciplinas x turmas) e horários
-export async function atualizarProfessorAdmin(professorAtual, dados, { turmasDisponiveis, disciplinasDisponiveis }) {
+// Dados pessoais + vínculos (cada turma com a SUA disciplina) + horários.
+// Disciplina nova é criada pelo backend, na mesma transação.
+export async function atualizarProfessorAdmin(professorAtual, dados) {
   const idProf = Number(professorAtual.id_professor ?? professorAtual.id);
-
-  const nomesDisciplinasAlvo = Array.isArray(dados.disciplinas)
-    ? dados.disciplinas
-    : (dados.disciplina || '')
-        .split(',')
-        .map((n) => n.trim())
-        .filter((n) => n && n !== 'Sem disciplina');
-
-  const idsTurmasAlvo = Array.isArray(dados.id_turmas)
-    ? dados.id_turmas.map(Number).filter((id) => Number.isInteger(id) && id > 0)
-    : turmasDisponiveis
-        .filter((t) =>
-          String(dados.turmas || '')
-            .split(',')
-            .map((n) => n.trim())
-            .filter((n) => n && n !== '–')
-            .includes(t.nome)
-        )
-        .map((t) => Number(t.id_turma ?? t.id));
-
-  // Garante que disciplinas novas (caso digitadas/criadas) existam no banco antes de vincular
-  for (const nomeDisc of nomesDisciplinasAlvo) {
-    const existe = disciplinasDisponiveis.some(
-      (d) => d.nome.toLowerCase() === nomeDisc.toLowerCase()
-    );
-    if (!existe) {
-      await api('/disciplina', {
-        metodo: 'POST',
-        corpo: { nome: nomeDisc },
-      });
-    }
-  }
-
-  // Envia tudo de uma vez para o backend (ProfessorService -> ProfessorModel.sincronizarVinculosEHorarios)
   return await api(`/professor/${idProf}`, {
     metodo: 'PUT',
     corpo: {
       nome: dados.nome,
       cpf: dados.cpf,
-      telefone: dados.telefone || undefined,
+      telefone: dados.telefone || null, // antes "undefined": não dava para apagar o telefone
       email: dados.email,
-      disciplinas: nomesDisciplinasAlvo,
-      id_turmas: idsTurmasAlvo,
+      vinculos: dados.vinculos ?? [],
       horarios: Array.isArray(dados.horarios) ? dados.horarios : [],
     },
+  });
+}
+
+// Passa uma turma/disciplina, com todas as notas, chamadas e tarefas, para
+// outro professor. É o que permite excluir um professor que já deu aula.
+export async function transferirVinculoProfessor(idProfessor, idTdp, idDestino) {
+  return await api(`/professor/${idProfessor}/transferir`, {
+    metodo: 'POST',
+    corpo: { id_tdp: Number(idTdp), id_professor_destino: Number(idDestino) },
   });
 }
 
