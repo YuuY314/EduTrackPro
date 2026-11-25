@@ -62,16 +62,17 @@ export default function Chamada() {
   }, [turmaUrl]);
 
   useEffect(() => {
-    if (!idTdpSelecionado) return;
+  if (!idTdpSelecionado) return;
 
-    api(`/frequencia/horarios/${idTdpSelecionado}`)
-      .then((res) => {
-        setHorariosTdp(res?.dados || []);
-      })
-      .catch(() => {
-        setHorariosTdp([]);
-      });
-  }, [idTdpSelecionado]);
+  api(`/frequencia/horarios/${idTdpSelecionado}`)
+    .then((res) => {
+      setHorariosTdp(res?.dados || []);
+    })
+    .catch((err) => {
+      setHorariosTdp([]);
+      setMensagem(err.message || 'Erro ao carregar horários da turma.');
+    });
+}, [idTdpSelecionado]);
 
   const opcoesAula = useMemo(() => {
     if (horariosTdp.length === 0) return [];
@@ -199,9 +200,12 @@ export default function Chamada() {
               const idOpcao = t.id_tdp || t.id;
               const nomeTurma = t.turma || t.nome_turma || t.nome || 'Turma';
               const turnoTurma = t.turno || t.periodo || '';
+              const disciplina = t.disciplina || t.nome_disciplina || '';
               return (
                 <option key={idOpcao} value={idOpcao}>
-                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}
+                  {nomeTurma}
+                  {turnoTurma ? ` · ${turnoTurma}` : ''}
+                  {disciplina ? ` — ${disciplina}` : ''}
                 </option>
               );
             })}
@@ -281,4 +285,4 @@ export default function Chamada() {
       </div>
     </>
   );
-}
+}

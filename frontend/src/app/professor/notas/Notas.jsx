@@ -267,4 +267,4 @@ export default function Notas() {
       </div>
     </>
   );
-}
+}
