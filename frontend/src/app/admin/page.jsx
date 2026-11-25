@@ -31,22 +31,22 @@ export default function Painel() {
       <div className="grade-2">
         <div className="cartao cartao-conteudo">
           <h3>Alunos em risco de reprovação por falta</h3>
-          {r?.alunosRisco.map((a) => (
+          {(r?.alunosRisco ?? []).map((a) => (
             <ListaItem key={a.id_aluno} titulo={a.nome} detalhe={`${nomeTurma(a.turma)} · ${a.turno}`}>
               <Etiqueta cor={a.presenca < 70 ? 'ruim' : 'atencao'}>{a.presenca}%</Etiqueta>
             </ListaItem>
           ))}
-          {r?.alunosRisco.length === 0 && <p className="dica">Nenhum aluno abaixo de 75%.</p>}
+          {r && (r.alunosRisco ?? []).length === 0 && <p className="dica">Nenhum aluno abaixo de 75%.</p>}
         </div>
 
         <div className="cartao cartao-conteudo">
           <h3>Lançamentos atrasados</h3>
-          {r?.lancamentosAtrasados.map((p) => (
+          {(r?.lancamentosAtrasados ?? []).map((p) => (
             <ListaItem key={p.id_professor} titulo={`Prof. ${p.nome}`} detalhe={`${p.disciplina} · ${p.pendentes} turma(s) sem nota`}>
               <Etiqueta cor="ruim">Atrasado</Etiqueta>
             </ListaItem>
           ))}
-          {r?.lancamentosAtrasados.length === 0 && <p className="dica">Nenhum lançamento atrasado.</p>}
+          {r && (r.lancamentosAtrasados ?? []).length === 0 && <p className="dica">Nenhum lançamento atrasado.</p>}
         </div>
       </div>
 

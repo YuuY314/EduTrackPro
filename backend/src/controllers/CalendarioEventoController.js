@@ -3,9 +3,14 @@
 // =====================================================================
 
 import * as CalendarioEventoService from '../services/CalendarioEventoService.js';
+import { AppError } from '../utils/AppError.js';
+import { turmaDoAluno } from '../utils/permissoes.js';
 
 // Traduz erros de domínio/validação para os códigos HTTP correspondentes
 function tratarErro(res, erro) {
+  if (erro instanceof AppError) {
+    return res.status(erro.status).json({ erro: erro.message });
+  }
   if (erro instanceof TypeError || erro instanceof RangeError) {
     return res.status(400).json({ erro: erro.message });
   }
@@ -19,9 +24,11 @@ function tratarErro(res, erro) {
 // 1. GET /calendario (com filtro opcional ?status=pendente)
 export async function listar(req, res) {
   try {
-    const eventos = await CalendarioEventoService.listar({
-      status: req.query.status,
-    });
+    // aluno só vê eventos confirmados, gerais ou da turma dele
+    const idTurma = await turmaDoAluno(req.usuario);
+    const eventos = await CalendarioEventoService.listar(
+      idTurma ? { status: 'confirmada', id_turma: idTurma } : { status: req.query.status }
+    );
     return res.status(200).json(eventos);
   } catch (erro) {
     return tratarErro(res, erro);
@@ -41,7 +48,7 @@ export async function buscarPorId(req, res) {
 // 3. POST /calendario
 export async function criar(req, res) {
   try {
-    const criado = await CalendarioEventoService.criar(req.body);
+    const criado = await CalendarioEventoService.criar(req.body, req.usuario);
     return res.status(201).json(criado);
   } catch (erro) {
     return tratarErro(res, erro);
@@ -61,9 +68,9 @@ export async function atualizar(req, res) {
 // 5. DELETE /calendario/:id
 export async function excluir(req, res) {
   try {
-    await CalendarioEventoService.excluir(req.params.id);
+    await CalendarioEventoService.excluir(req.params.id, req.usuario);
     return res.status(204).end();
   } catch (erro) {
     return tratarErro(res, erro);
   }
-}
+}

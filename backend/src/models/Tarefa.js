@@ -1,6 +1,6 @@
-export default class Disciplina {
+export default class Tarefa {
     constructor({
-        id_tarefa, id_tdp, titulo, descricao, data_entrega
+        id_tarefa, id_tdp, titulo, descricao = null, data_entrega
     }) {
         if (!Number.isInteger(id_tarefa) || id_tarefa <= 0) {
             throw new TypeError('ID deve ser um inteiro positivo');
@@ -18,8 +18,9 @@ export default class Disciplina {
             throw new TypeError('Data deve estar no formato YYYY-MM-DD');
         }
         this.id_tarefa = id_tarefa;
+        this.id_tdp = id_tdp;
         this.titulo = titulo.trim();
         this.descricao = descricao?.trim() ?? null;
         this.data_entrega = data_entrega;
     }
-}
+}

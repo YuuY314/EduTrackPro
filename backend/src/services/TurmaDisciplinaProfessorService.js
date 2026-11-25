@@ -1,5 +1,6 @@
 import TurmaDisciplinaProfessor from '../models/TurmaDisciplinaProfessor.js';
 import * as TurmaDisciplinaProfessorModel from '../models/TurmaDisciplinaProfessorModel.js';
+import { AppError } from '../utils/AppError.js';
 
 function validarId(idRecebido) {
   const id = Number(idRecebido);
@@ -74,6 +75,17 @@ export async function salvarImagem(idRecebido, imagemUrl) {
 
 export async function excluir(idRecebido) {
   const id = validarId(idRecebido);
+
+  // As tabelas aulas, avaliacoes e tarefas usam ON DELETE CASCADE: apagar o
+  // vínculo apagaria junto toda a chamada e todas as notas. Por isso recusamos.
+  const usos = await TurmaDisciplinaProfessorModel.contarUsos(id);
+  if (usos > 0) {
+    throw new AppError(
+      'Não é possível remover este vínculo: a turma já tem aulas, notas ou tarefas lançadas nessa disciplina.',
+      409
+    );
+  }
+
   const removeu = await TurmaDisciplinaProfessorModel.excluir(id);
   if (!removeu) {
     throw new Error(`TurmaDisciplinaProfessor ${id} não encontrado.`);

@@ -14,7 +14,7 @@ import { OAuth2Client } from 'google-auth-library';
 import * as UsuarioModel from '../models/UsuarioModel.js';
 import { AppError } from '../utils/AppError.js';
 import { gerarHash, senhaConfere } from '../utils/senha.js';
-import { gerarToken, verificarTokenRecuperacao, gerarTokenRecuperacao } from '../utils/token.js';
+import { gerarToken, verificarTokenRecuperacao, gerarTokenRecuperacao, impressaoSenha } from '../utils/token.js';
 import { ambiente } from '../config/ambiente.js';
 
 import { enviarEmailRecuperacao } from './GmailAPIService.js';
@@ -137,7 +137,7 @@ export async function solicitarRecuperacaoSenha({ login } = {}) {
     return { mensagem: MENSAGEM_RECUPERACAO };
   }
 
-  const token = gerarTokenRecuperacao(usuario.id_usuario);
+  const token = gerarTokenRecuperacao(usuario.id_usuario, usuario.senha_hash);
 
   try {
     await enviarEmailRecuperacao({
@@ -159,8 +159,9 @@ export async function redefinirSenha({ token, senha } = {}) {
     throw new AppError('Link de recuperação inválido ou expirado.', 400);
   }
 
-  if (typeof senha !== 'string' || senha.length < 6) {
-    throw new AppError('A senha deve possuir pelo menos 6 caracteres.', 400);
+  // mesmo mínimo do cadastro (8)
+  if (typeof senha !== 'string' || senha.length < 8) {
+    throw new AppError('A senha deve possuir pelo menos 8 caracteres.', 400);
   }
 
   const payload = verificarTokenRecuperacao(token);
@@ -171,6 +172,11 @@ export async function redefinirSenha({ token, senha } = {}) {
     throw new AppError('Usuário não encontrado.', 404);
   }
 
+  // Link já usado (a senha mudou depois que ele foi gerado) ou gerado antes desta regra
+  if (payload.ph !== impressaoSenha(usuario.senha_hash)) {
+    throw new AppError('Link de recuperação inválido ou expirado.', 400);
+  }
+
   const senhaHash = await gerarHash(senha);
 
   await UsuarioModel.atualizarSenha(usuario.id_usuario, senhaHash);
@@ -178,4 +184,4 @@ export async function redefinirSenha({ token, senha } = {}) {
   return {
     mensagem: 'Senha redefinida com sucesso.',
   };
-}
+}

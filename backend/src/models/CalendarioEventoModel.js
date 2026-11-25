@@ -19,13 +19,18 @@ function hidratarEvento(linha) {
   };
 }
 //listagem dinamica para todas as situações do status
-export async function listar({ status } = {}) {
+//id_turma (opcional): só eventos gerais (sem turma) + os daquela turma (usado para o aluno)
+export async function listar({ status, id_turma } = {}) {
   const condicoes = [];
   const valores = [];
 
   if (status) {
     condicoes.push('ce.status = ?');
     valores.push(status);
+  }
+  if (id_turma) {
+    condicoes.push('(ce.id_turma IS NULL OR ce.id_turma = ?)');
+    valores.push(id_turma);
   }
 
   const where = condicoes.length > 0 ? `WHERE ${condicoes.join(' AND ')}` : '';
@@ -133,4 +138,4 @@ export async function excluir(id) {
     [id]
   );
   return resultado.affectedRows > 0;
-}
+}

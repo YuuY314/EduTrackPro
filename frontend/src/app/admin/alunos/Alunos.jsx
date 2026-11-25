@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Etiqueta from '@/src/components/Etiqueta';
 import EditarAluno from '@/src/components/EditarAluno';
 import Selecao from '@/src/components/Selecao';
-import { admin } from '@/src/lib/api';
+import { listarAlunosAdmin, atualizarAlunoAdmin, excluirAlunoAdmin, } from '@/src/lib/api';
 
 function Situacao({ presenca }) {
   if (presenca === null) return <Etiqueta cor="vazio">Novo</Etiqueta>;
@@ -22,11 +22,22 @@ export default function Alunos() {
   const [turno, setTurno] = useState('');
   const [editando, setEditando] = useState(null);
 
+  async function carregar() {
+    try {
+      setCarregando(true);
+      setErro('');
+      const dados = await listarAlunosAdmin();
+      setAlunos(dados.alunos);
+      setTurmas(dados.turmas);
+    } catch (e) {
+      setErro(e.message || 'Não foi possível carregar os alunos.');
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   useEffect(() => {
-    Promise.all([admin.alunos(), admin.turmas()])
-      .then(([a, t]) => { setAlunos(a); setTurmas(t); })
-      .catch((e) => setErro(e.message))
-      .finally(() => setCarregando(false));
+    carregar();
   }, []);
 
   const visiveis = alunos.filter((a) => {
@@ -35,17 +46,25 @@ export default function Alunos() {
   });
 
   async function salvar(dados) {
-    const atualizado = await admin.salvarAluno(editando.id_aluno, dados);
-    setAlunos(alunos.map((a) => (a.id_aluno === atualizado.id_aluno ? atualizado : a)));
+    try {
+      setErro('');
+      await atualizarAlunoAdmin(editando.id_aluno, editando.id_responsavel, dados);
+      setAlunos((atual) =>
+        atual.map((a) => (a.id_aluno === editando.id_aluno ? { ...a, ...dados } : a))
+      );
+    } catch (e) {
+      setErro(e.message || 'Não foi possível salvar as alterações do aluno.');
+    }
   }
 
   async function excluir(aluno) {
     if (!window.confirm(`Excluir o aluno ${aluno.nome} (${aluno.matricula})?`)) return;
     try {
-      await admin.excluirAluno(aluno.id_aluno);
-      setAlunos(alunos.filter((a) => a.id_aluno !== aluno.id_aluno));
+      setErro('');
+      await excluirAlunoAdmin(aluno.id_aluno);
+      setAlunos((atual) => atual.filter((a) => a.id_aluno !== aluno.id_aluno));
     } catch (e) {
-      window.alert(e.message);
+      setErro(e.message || 'Não foi possível excluir o aluno.');
     }
   }
 
@@ -74,6 +93,12 @@ export default function Alunos() {
         </div>
       </div>
 
+      {erro && (
+        <p className="dica" style={{ color: '#f87171', marginBottom: '1rem' }}>
+          {erro}
+        </p>
+      )}
+
       <div className="cartao tabela-rolagem tabela-larga tabela-escura">
         <table>
           <thead>
@@ -87,34 +112,44 @@ export default function Alunos() {
             </tr>
           </thead>
           <tbody>
-            {visiveis.map((a) => (
-              <tr key={a.id_aluno}>
-                <td>{a.matricula}</td>
-                <td>
-                  {a.nome}
-                  {a.responsavel && <small>Resp.: {a.responsavel}</small>}
-                </td>
-                <td>{a.turma}<small>{a.turno}</small></td>
-                <td className="centro">{a.presenca === null ? '–' : `${a.presenca}%`}</td>
-                <td className="centro"><Situacao presenca={a.presenca} /></td>
-                <td>
-                  <div className="turma-botoes">
-                    <button className="botao botao-pequeno botao-contorno" onClick={() => setEditando(a)}>
-                      Editar
-                    </button>
-                    <button className="botao botao-pequeno botao-perigo" onClick={() => excluir(a)}>
-                      Excluir
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {visiveis.length === 0 && (
+            {carregando ? (
               <tr>
                 <td colSpan={6} className="dica">
-                  {carregando ? 'Carregando alunos…' : erro || 'Nenhum aluno encontrado. Confira a busca ou o filtro de turno.'}
+                  Carregando alunos...
                 </td>
               </tr>
+            ) : (
+              <>
+                {visiveis.map((a) => (
+                  <tr key={a.id_aluno ?? a.matricula}>
+                    <td>{a.matricula}</td>
+                    <td>
+                      {a.nome}
+                      {a.responsavel && <small>Resp.: {a.responsavel}</small>}
+                    </td>
+                    <td>{a.turma}<small>{a.turno}</small></td>
+                    <td className="centro">{a.presenca === null ? '–' : `${a.presenca}%`}</td>
+                    <td className="centro"><Situacao presenca={a.presenca} /></td>
+                    <td>
+                      <div className="turma-botoes">
+                        <button className="botao botao-pequeno botao-contorno" onClick={() => setEditando(a)}>
+                          Editar
+                        </button>
+                        <button className="botao botao-pequeno botao-perigo" onClick={() => excluir(a)}>
+                          Excluir
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {visiveis.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="dica">
+                      Nenhum aluno encontrado. Confira a busca ou o filtro de turno.
+                    </td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
@@ -122,7 +157,7 @@ export default function Alunos() {
 
       {editando && (
         <EditarAluno
-          key={editando.id_aluno}
+          key={editando.id_aluno ?? editando.matricula}
           aluno={editando}
           turmas={turmas}
           onSalvar={salvar}

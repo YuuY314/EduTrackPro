@@ -12,10 +12,23 @@ const tooltipStyle = { background: '#1b1e3d', border: '1px solid #3a3f78', borde
 
 function pontosDaFuncao({ expressao, xMin = -10, xMax = 10 }) {
   const f = compile(String(expressao).slice(0, 120)); // limita o tamanho da expressão
-  const passo = (xMax - xMin) / 200;
+
+  // O JSON vem da IA: os limites podem chegar como texto, iguais ou invertidos.
+  // Com xMin === xMax o passo seria 0 e o "for" nunca terminaria (a aba travava).
+  let inicio = Number(xMin);
+  let fim = Number(xMax);
+  if (!Number.isFinite(inicio) || !Number.isFinite(fim) || inicio === fim) {
+    inicio = -10;
+    fim = 10;
+  }
+  if (inicio > fim) [inicio, fim] = [fim, inicio];
+
+  const PONTOS = 200;
+  const passo = (fim - inicio) / PONTOS;
   const pontos = [];
-  for (let x = xMin; x <= xMax; x += passo) {
-    const y = f.evaluate({ x });
+  for (let i = 0; i <= PONTOS; i++) { // conta por índice: sempre termina
+    const x = inicio + i * passo;
+    const y = Number(f.evaluate({ x }));
     if (Number.isFinite(y)) pontos.push({ x: +x.toFixed(3), y: +y.toFixed(3) });
   }
   return pontos;
@@ -72,4 +85,4 @@ export default function GraficoIA({ json }) {
       </div>
     </figure>
   );
-}
+}

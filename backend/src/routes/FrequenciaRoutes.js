@@ -1,27 +1,27 @@
-import express from 'express';
+// =====================================================================
+// routes/FrequenciaRoutes.js - /api/frequencia
+// Chamada: equipe (o controller confere se o professor leciona no id_tdp).
+// CRUD avulso de frequência: só admin.
+// IMPORTANTE: /chamada e /horarios vêm ANTES de /:id, senão o Express
+// acharia que "chamada" é um id.
+// =====================================================================
+
+import { Router } from 'express';
 import * as FrequenciaController from '../controllers/FrequenciaController.js';
-// import { uploadImagem } from '../middlewares/UploadMiddleware.js';
+import { autenticar, exigirPerfil } from '../middlewares/autenticar.js';
 
-// Middlewares de autenticação (serão ativados na Sessão 2)
-// Inicialmente passam direto para não travar a Sessão 1
-let autenticar = (_req, _res, next) => next();
-let autorizarAdmin = (_req, _res, next) => next();
+export const frequenciaRouter = Router();
+frequenciaRouter.use(autenticar);
 
-export const frequenciaRouter = express.Router();
+const equipe = exigirPerfil('admin', 'professor');
+const somenteAdmin = exigirPerfil('admin');
 
-frequenciaRouter.get('/', FrequenciaController.listar);
-frequenciaRouter.get('/chamada', FrequenciaController.buscarChamada);
-frequenciaRouter.post('/chamada', (req, res, next) => autenticar(req, res, next), FrequenciaController.salvarChamada);
-frequenciaRouter.get('/horarios/:id_tdp', FrequenciaController.listarHorarios);
-frequenciaRouter.get('/:id', FrequenciaController.buscarPorId);
-frequenciaRouter.post('/', (req, res, next) => autenticar(req, res, next), FrequenciaController.criar);
-frequenciaRouter.put('/:id', (req, res, next) => autenticar(req, res, next), FrequenciaController.atualizar);
-// frequenciaRouter.patch('/:id/imagem', (req, res, next) => autenticar(req, res, next), uploadImagem, FrequenciaController.enviarImagem);
-frequenciaRouter.delete('/:id', (req, res, next) => autenticar(req, res, next), (req, res, next) => autorizarAdmin(req, res, next), FrequenciaController.excluir);
+frequenciaRouter.get('/chamada', equipe, FrequenciaController.buscarChamada);
+frequenciaRouter.post('/chamada', equipe, FrequenciaController.salvarChamada);
+frequenciaRouter.get('/horarios/:id_tdp', equipe, FrequenciaController.listarHorarios);
 
-export function configurarSegurancaFrequencias(middlewareAuth, middlewareAdmin) {
-  // Substitui os middlewares provisórios da Sessão 1 pelos middlewares reais.
-  if (middlewareAuth) autenticar = middlewareAuth;
-  if (middlewareAdmin) autorizarAdmin = middlewareAdmin;
-}
-
+frequenciaRouter.get('/', somenteAdmin, FrequenciaController.listar);
+frequenciaRouter.get('/:id', somenteAdmin, FrequenciaController.buscarPorId);
+frequenciaRouter.post('/', somenteAdmin, FrequenciaController.criar);
+frequenciaRouter.put('/:id', somenteAdmin, FrequenciaController.atualizar);
+frequenciaRouter.delete('/:id', somenteAdmin, FrequenciaController.excluir);

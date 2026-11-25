@@ -1,4 +1,5 @@
 import * as dbModule from '../config/database.js';
+import { garantirAlunosDaTdp } from '../utils/permissoes.js';
 
 // Suporta tanto o pool exportado diretamente quanto a fábrica criarPool()
 const pool = typeof dbModule.criarPool === 'function' ? dbModule.criarPool() : dbModule.pool;
@@ -86,16 +87,22 @@ export async function buscarBoletim(id_tdp, bimestre) {
   }
 
   const colunas = ['Prova 1', 'Prova 2', 'Trabalho'];
-  //passa a avaliação pela função posicaoNota para renomear os nomes antigos do banco
-  const avaliacoesAjustadas = avaliacoes.map((a) => {
-    const pos = posicaoDaNota(a.titulo, colunas);
-    return {
-      ...a,
-      titulo: pos !== -1 ? colunas[pos] : a.titulo,
-    };
-  });
+  const avaliacoesPorColuna = new Map();
 
-  const idsAval = avaliacoes.map((a) => a.id_avaliacao);
+  for (const a of avaliacoes) {
+    const pos = posicaoDaNota(a.titulo, colunas);
+    const tituloOficial = pos !== -1 ? colunas[pos] : a.titulo;
+    if (!avaliacoesPorColuna.has(tituloOficial)) {
+      avaliacoesPorColuna.set(tituloOficial, {
+        ...a,
+        titulo: tituloOficial,
+      });
+    }
+  }
+  //passa a avaliação pela função posicaoNota para renomear os nomes antigos do banco
+  const avaliacoesAjustadas = Array.from(avaliacoesPorColuna.values());
+  const idsAval = avaliacoesAjustadas.map((a) => a.id_avaliacao);
+
   const [notas] = await pool.query(
     //vai procurar a nota por id para atribiur ao aluno ao mesmo tempo convertendo para um número real
     'SELECT id, id_avaliacao, id_aluno, valor FROM notas WHERE id_avaliacao IN (?)',
@@ -114,6 +121,8 @@ export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registr
   const conexao = await pool.getConnection();
   try {
     await conexao.beginTransaction();
+
+    await garantirAlunosDaTdp(id_tdp, registros.map((r) => r.id_aluno), conexao);
 
     const pesosPorTitulo = {
       'Prova 1': 0.40,
@@ -188,4 +197,4 @@ export async function salvarBoletimCompleto({ id_tdp, bimestre, titulos, registr
   } finally {
     conexao.release();
   }
-}
+}

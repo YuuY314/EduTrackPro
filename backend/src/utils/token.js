@@ -11,6 +11,7 @@
 // Nunca coloque senha ou dado sensível no payload.
 // =====================================================================
 
+import { createHash } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
 import { ambiente } from '../config/ambiente.js';
@@ -50,12 +51,20 @@ export function verificarToken(token) {
   }
 }
 
+// "Impressão digital" curta do hash da senha atual. Vai dentro do token de
+// recuperação: quando a senha muda, o hash muda e o link antigo deixa de valer
+// (o link só pode ser usado UMA vez). Não revela a senha nem o hash.
+export function impressaoSenha(senhaHash) {
+  return createHash('sha256').update(String(senhaHash)).digest('hex').slice(0, 16);
+}
+
 // Gera um JWT exclusivo para recuperação de senha.
-export function gerarTokenRecuperacao(idUsuario) {
+export function gerarTokenRecuperacao(idUsuario, senhaHash) {
   return jwt.sign(
     {
       sub: idUsuario,
       purpose: 'password_reset',
+      ph: impressaoSenha(senhaHash),
     },
     ambiente.jwtSegredo,
     {
@@ -80,4 +89,4 @@ export function verificarTokenRecuperacao(token) {
   } catch {
     throw new AppError('Link de recuperação inválido ou expirado.', 400);
   }
-}
+}

@@ -51,7 +51,7 @@ export default function InicioProfessor() {
         <CartaoNumero numero={String(dados.totalAulasHoje)} texto="Aulas hoje" />
         <CartaoNumero
           numero={String(dados.turmasSemNota)}
-          texto={`Turmas sem nota no ${dados.bimestreAtual}º bimestre`}
+          texto={`Turmas com notas pendentes`}
           href="/professor/notas"
           alerta={dados.turmasSemNota > 0}
         />

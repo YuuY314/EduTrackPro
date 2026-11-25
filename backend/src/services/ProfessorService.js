@@ -9,7 +9,7 @@ import * as ProfessorModel from '../models/ProfessorModel.js';
 import * as UsuarioModel from '../models/UsuarioModel.js';
 import { AppError } from '../utils/AppError.js';
 import { gerarHash } from '../utils/senha.js';
-import { lerPaginacao, lerTextos, montarPaginacao, paraId } from '../utils/validacoes.js';
+import { lerPaginacao, lerTextos, montarPaginacao, paraId, validarSenha } from '../utils/validacoes.js';
 
 const TEXTOS = ['nome', 'cpf', 'email'];
 
@@ -29,7 +29,7 @@ export async function buscarPorId(idRecebido) {
 // body: { nome, cpf, email, senha, telefone? }
 export async function criar(body = {}) {
   const dados = lerTextos(body, { obrigatorios: [...TEXTOS, 'senha'], opcionais: ['telefone'] });
-  const senha_hash = await gerarHash(dados.senha);
+  const senha_hash = await gerarHash(validarSenha(dados.senha));
 
   const id = await emTransacao(async (conexao) => {
     const id_usuario = await UsuarioModel.criar({ email: dados.email, senha_hash, perfil: 'professor' }, conexao);

@@ -10,7 +10,7 @@ import * as AlunoModel from '../models/AlunoModel.js';
 import * as UsuarioModel from '../models/UsuarioModel.js';
 import { AppError } from '../utils/AppError.js';
 import { gerarHash } from '../utils/senha.js';
-import { lerPaginacao, lerTextos, montarPaginacao, paraId } from '../utils/validacoes.js';
+import { lerPaginacao, lerTextos, montarPaginacao, paraId, validarSenha } from '../utils/validacoes.js';
 
 const TEXTOS = ['matricula', 'nome', 'cpf', 'email_institucional'];
 
@@ -35,7 +35,7 @@ export async function criar(body = {}) {
   const dados = lerTextos(body, { obrigatorios: [...TEXTOS, 'senha'], opcionais: ['endereco'] });
   dados.id_turma = paraId(body.id_turma, 'id_turma');
   dados.id_responsavel = paraId(body.id_responsavel, 'id_responsavel');
-  const senha_hash = await gerarHash(dados.senha);
+  const senha_hash = await gerarHash(validarSenha(dados.senha));
 
   const id = await emTransacao(async (conexao) => {
     const id_usuario = await UsuarioModel.criar(

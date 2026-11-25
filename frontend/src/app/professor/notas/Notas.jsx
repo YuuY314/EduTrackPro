@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Etiqueta from '@/src/components/Etiqueta';
 import { api, lerSessao } from '@/src/lib/api';
-import { corDaNota, media } from '@/src/lib/utils';
+import { bimestreAtual, corDaNota, media, PESOS_AVALIACOES } from '@/src/lib/utils';
 
 const avaliacoes = ['Prova 1', 'Prova 2', 'Trabalho'];
 
@@ -25,7 +25,10 @@ export default function Notas() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
-  const [bimestre, setBimestre] = useState(bimestres[0].value);
+  // abre no bimestre atual (se ele estiver na lista)
+  const [bimestre, setBimestre] = useState(
+    () => bimestres.find((b) => b.value === String(bimestreAtual()))?.value ?? bimestres[0].value
+  );
 
   useEffect(() => {
     const sessao = lerSessao();
@@ -119,6 +122,10 @@ export default function Notas() {
   }, [idTdpSelecionado, bimestre, turmasProf]);
 
   function mudarNota(indiceAluno, indiceNota, valor) {
+    if (valor !== '' && (Number(valor) < 0 || Number(valor) > 10)) {
+      setMensagem('A nota deve estar entre 0 e 10.');
+      return;
+    }
     const novas = [...linhas];
     novas[indiceAluno] = { ...novas[indiceAluno], notas: [...novas[indiceAluno].notas] };
     novas[indiceAluno].notas[indiceNota] = valor;
@@ -148,7 +155,7 @@ export default function Notas() {
         },
       });
 
-      const emBranco = linhas.filter((l) => media(l.notas) === null).length;
+      const emBranco = linhas.filter((l) => media(l.notas, PESOS_AVALIACOES) === null).length;
       const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       setMensagem(
         emBranco
@@ -177,9 +184,10 @@ export default function Notas() {
               const idOpcao = t.id_tdp || t.id;
               const nomeTurma = t.turma || t.nome_turma || t.nome || 'Turma';
               const turnoTurma = t.turno || t.periodo || '';
+              const materia = t.disciplina || t.nome_disciplina || '';
               return (
                 <option key={idOpcao} value={idOpcao}>
-                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}
+                  {nomeTurma}{turnoTurma ? ` · ${turnoTurma}` : ''}{materia ? ` — ${materia}` : ''}
                 </option>
               );
             })}
@@ -217,7 +225,7 @@ export default function Notas() {
                 </tr>
               ) : (
                 linhas.map((linha, i) => {
-                  const m = media(linha.notas);
+                  const m = media(linha.notas, PESOS_AVALIACOES);
                   return (
                     <tr key={linha.id_aluno}>
                       <td>{linha.aluno}</td>
@@ -231,6 +239,11 @@ export default function Notas() {
                             step="0.5"
                             value={nota}
                             aria-label={`${linha.aluno} – ${avaliacoes[j]}`}
+                            onKeyDown={(e) => {
+                              if (['e', 'E', '+', '-'].includes(e.key)) {
+                                e.preventDefault();
+                              }
+                            }}
                             onChange={(e) => mudarNota(i, j, e.target.value)}
                           />
                         </td>
@@ -247,11 +260,11 @@ export default function Notas() {
         </div>
 
         <div className="cartao-rodape">
-          <span className="dica">Média = (Prova 1 + Prova 2 + Trabalho) ÷ 3</span>
+          <span className="dica">Média = Prova 1 × 40% + Prova 2 × 30% + Trabalho × 30%</span>
           <span className="mensagem" role="status">{mensagem}</span>
           <button type="button" className="botao" onClick={salvar} disabled={salvando || carregando || linhas.length === 0}>{salvando ? 'Salvando...' : 'Salvar notas'}</button>
         </div>
       </div>
     </>
   );
-}
+}

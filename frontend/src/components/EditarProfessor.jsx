@@ -26,13 +26,16 @@ const telefoneValido = (v) => v.replace(/\D/g, '').length >= 10;
 
 
 function montarForm(professor, turmas) {
+  const idsVinculados = professor.ids_turmas
+    ?? (professor.vinculos ? [...new Set(professor.vinculos.map((v) => Number(v.id_turma)))] : []);
+
   return {
     nome: professor.nome ?? '',
     cpf: professor.cpf ?? '',
     telefone: professor.telefone ?? '',
     email: professor.email ?? '',
-    disciplina: professor.disciplina ?? '',
-    turmas: professor.ids_turmas ?? [],
+    disciplina: professor.disciplina === 'Sem disciplina' ? '' : (professor.disciplina ?? ''),
+    turmas: idsVinculados,
   };
 }
 

@@ -38,7 +38,7 @@ export async function criar(avaliacao) {
   const sql = 'INSERT INTO avaliacoes (id_tdp, titulo, bimestre, peso, data) VALUES (?, ?, ?, ?, ?)';
   const valores = [avaliacao.id_tdp, avaliacao.titulo, avaliacao.bimestre, avaliacao.peso, avaliacao.data];
   const [resultado] = await pool.query(sql, valores);
-  return { ...avaliacao, id: resultado.insertId, imagem_url: null };
+  return { ...avaliacao, id_avaliacao: resultado.insertId, id: resultado.insertId };
 }
 
 // 4. Atualização completa (PUT)
